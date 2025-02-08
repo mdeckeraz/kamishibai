@@ -39,3 +39,19 @@ out/
 ### Application specific ###
 application-local.properties
 *.log
+
+### Compiled files ###
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+*.ear
+*.class
+
+### Database files ###
+*.db
+*.mv.db
+*.trace.db
+
+### App Engine ###
+src/main/appengine/*.jar
+src/main/appengine/*.war
