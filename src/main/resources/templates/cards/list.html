@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+<head>
+    <title>Cards</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a th:href="@{/boards}" class="text-decoration-none">Boards</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/boards/{id}(id=${boardId})}" class="text-decoration-none" th:text="${board.title}">Board</a></li>
+                <li class="breadcrumb-item active">Cards</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Cards</h2>
+            <a th:href="@{/boards/{boardId}/cards/create(boardId=${boardId})}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>
+                Create New Card
+            </a>
+        </div>
+
+        <div class="alert alert-info" th:if="${#lists.isEmpty(cards)}">
+            <i class="bi bi-info-circle me-2"></i>
+            No cards found. Click the "Create New Card" button to add one.
+        </div>
+
+        <div class="row row-cols-1 row-cols-md-3 g-4" th:if="${not #lists.isEmpty(cards)}">
+            <div class="col" th:each="card : ${cards}">
+                <div class="card h-100 shadow-sm" th:classappend="${card.state.name() == 'RED'} ? 'border-danger' : 'border-success'">
+                    <div class="card-body">
+                        <h5 class="card-title" th:text="${card.title}">Card Title</h5>
+                        <p class="card-text" th:text="${card.details}">Card Details</p>
+                        <p class="card-text">
+                            <small class="text-muted">
+                                <i class="bi bi-clock me-1"></i>
+                                Reset Time: <span th:text="${#temporals.format(card.resetTime, 'HH:mm')}">00:00</span>
+                            </small>
+                        </p>
+                    </div>
+                    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
+                        <button class="btn btn-sm" 
+                                th:classappend="${card.state.name() == 'RED'} ? 'btn-danger' : 'btn-success'"
+                                th:onclick="'toggleCardState(' + ${card.id} + ')'"
+                                th:title="${card.state.name() == 'RED'} ? 'Mark as Solved' : 'Mark as Problem'">
+                            <i class="bi" th:classappend="${card.state.name() == 'RED'} ? 'bi-x-lg' : 'bi-check-lg'"></i>
+                            <span th:text="${card.state.name()}">STATE</span>
+                        </button>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-secondary" 
+                                    th:onclick="'viewAuditLog(' + ${card.id} + ')'">
+                                <i class="bi bi-clock-history me-1"></i>
+                                History
+                            </button>
+                            <a th:href="@{/boards/{boardId}/cards/{cardId}/edit(boardId=${boardId},cardId=${card.id})}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil me-1"></i>
+                                Edit
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block layout:fragment="scripts">
+        <script th:inline="javascript">
+            function toggleCardState(cardId) {
+                fetch(`/boards/${/*[[${boardId}]]*/'1'}/cards/${cardId}/toggle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to toggle card state');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to toggle card state');
+                });
+            }
+
+            function viewAuditLog(cardId) {
+                fetch(`/boards/${/*[[${boardId}]]*/'1'}/cards/${cardId}/audit`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch audit log');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Format and display the audit log
+                        const logEntries = data.map(entry => {
+                            const date = new Date(entry.changedAt).toLocaleString();
+                            return `${date}: ${entry.previousState} → ${entry.newState}`;
+                        }).join('\n');
+                        alert(logEntries || 'No history available');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to fetch audit log');
+                    });
+            }
+        </script>
+    </th:block>
+</body>
+</html>

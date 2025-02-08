@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+<head>
+    <title th:text="${board.name}">Board</title>
+    <style>
+        .card-container {
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .card-red {
+            border: 2px solid #dc3545;
+        }
+        .card-green {
+            border: 2px solid #198754;
+        }
+        .card-header-red {
+            background-color: #dc3545;
+            color: white;
+        }
+        .card-header-green {
+            background-color: #198754;
+            color: white;
+        }
+        .card-list {
+            min-height: 200px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div layout:fragment="content">
+        <!-- Board Header -->
+        <div class="mb-4">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a th:href="@{/boards}" class="text-decoration-none">Boards</a></li>
+                    <li class="breadcrumb-item active" th:text="${board.name}">Board Name</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2 class="mb-2" th:text="${board.name}">Board Name</h2>
+                    <p class="text-muted mb-0" th:text="${board.description}">Board Description</p>
+                    <small class="text-muted">
+                        <i class="bi bi-person me-1"></i>
+                        Created by <span th:text="${board.owner.name}">Owner Name</span>
+                    </small>
+                </div>
+                <div>
+                    <a th:href="@{/boards/{id}/cards/create(id=${board.id})}" class="btn btn-primary me-2">
+                        <i class="bi bi-plus-lg me-1"></i> Add Card
+                    </a>
+                    <a th:if="${board.owner.id == #authentication.principal.id}"
+                       th:href="@{/boards/{id}/edit(id=${board.id})}" 
+                       class="btn btn-outline-secondary">
+                        <i class="bi bi-pencil me-1"></i> Edit Board
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cards Section -->
+        <div class="row g-4">
+            <!-- Red Cards -->
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header card-header-red">
+                        <h5 class="mb-0">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Problems
+                        </h5>
+                    </div>
+                    <div class="card-body card-list">
+                        <div th:if="${#lists.isEmpty(redCards)}" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                            No problem cards yet
+                        </div>
+                        <div th:each="card : ${redCards}" class="card card-red mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title" th:text="${card.title}">Card Title</h6>
+                                <p class="card-text small" th:text="${card.description}">Card Description</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted" th:text="${#temporals.format(card.createdAt, 'MMM dd, yyyy')}">Date</small>
+                                    <div>
+                                        <a th:href="@{/boards/{boardId}/cards/{cardId}/edit(boardId=${board.id},cardId=${card.id})}" 
+                                           class="btn btn-outline-secondary btn-sm">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Green Cards -->
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header card-header-green">
+                        <h5 class="mb-0">
+                            <i class="bi bi-check-circle me-2"></i>
+                            Solutions
+                        </h5>
+                    </div>
+                    <div class="card-body card-list">
+                        <div th:if="${#lists.isEmpty(greenCards)}" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                            No solution cards yet
+                        </div>
+                        <div th:each="card : ${greenCards}" class="card card-green mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title" th:text="${card.title}">Card Title</h6>
+                                <p class="card-text small" th:text="${card.description}">Card Description</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted" th:text="${#temporals.format(card.createdAt, 'MMM dd, yyyy')}">Date</small>
+                                    <div>
+                                        <a th:href="@{/boards/{boardId}/cards/{cardId}/edit(boardId=${board.id},cardId=${card.id})}" 
+                                           class="btn btn-outline-secondary btn-sm">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

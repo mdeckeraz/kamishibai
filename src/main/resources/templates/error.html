@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - Kamishibai</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body class="bg-light">
+    <div class="container">
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h2 class="text-center mb-4">Oops! Something went wrong</h2>
+                        <div class="alert alert-danger">
+                            <h4 class="alert-heading">Error Details</h4>
+                            <p><strong>Status:</strong> <span th:text="${status}">500</span></p>
+                            <p><strong>Message:</strong> <span th:text="${message}">Internal Server Error</span></p>
+                            <p th:if="${exception}" class="mb-0">
+                                <strong>Exception:</strong> <span th:text="${exception}">No details available</span>
+                            </p>
+                        </div>
+                        <div class="text-center mt-4">
+                            <a href="/" class="btn btn-primary">Return to Home</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

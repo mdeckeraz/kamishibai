@@ -1,0 +1,5 @@
+{
+  "projectName": "kamishibai",
+  "projectType": "java",
+  "buildSystem": "gradle"
+}
