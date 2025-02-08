@@ -1,67 +1,77 @@
 # Kamishibai
 
-A Spring Boot application designed for Google App Engine.
+A modern card management system built with Spring Boot and Thymeleaf.
 
-## Prerequisites
+## Features
+
+- User Authentication and Authorization
+- Board Management
+- Card Creation and Management
+- Real-time Updates
+- Responsive Design
+
+## Technology Stack
+
+- Java 17
+- Spring Boot 3.x
+- Spring Security
+- Thymeleaf
+- H2 Database
+- Bootstrap 5
+- Gradle
+
+## Getting Started
+
+### Prerequisites
 
 - Java 17 or higher
-- Maven 3.6 or higher
-- Google Cloud SDK
-- Google Cloud Project with App Engine enabled
+- Gradle 8.x
 
-## Local Development
+### Running Locally
 
-1. Build the project:
+1. Clone the repository:
    ```bash
-   mvn clean install
+   git clone https://github.com/mdeckeraz/kamishibai.git
+   cd kamishibai
    ```
 
-2. Run locally:
+2. Build the project:
    ```bash
-   mvn spring-boot:run
+   ./gradlew clean build
+   ```
+
+3. Run the application:
+   ```bash
+   ./gradlew bootRun
    ```
 
 The application will be available at `http://localhost:8080`
 
-## Deployment to Google App Engine
+### Default Credentials
 
-1. Configure your Google Cloud project:
-   ```bash
-   gcloud config set project YOUR_PROJECT_ID
-   ```
-
-2. Deploy to App Engine:
-   ```bash
-   mvn package appengine:deploy
-   ```
-
-## Project Structure
-
-- `src/main/java/com/kamishibai` - Java source files
-- `src/main/resources` - Configuration files and static resources
-- `src/main/appengine` - App Engine configuration
-- `src/test` - Test files
-
-## Features
-
-- Spring Boot 3.2.2
-- Spring Security
-- Spring Data JPA
-- Thymeleaf templating
-- H2 Database (dev)
-- Google App Engine configuration
-
-## Development
-
-The project uses:
-- Lombok for reducing boilerplate code
-- Spring DevTools for hot reloading
-- H2 Console for database inspection (dev only)
-
-## Security
-
-The default security configuration (dev only) is:
 - Username: admin
 - Password: admin
 
-**Note:** Update these credentials before deploying to production.
+## Development
+
+### Project Structure
+
+- `src/main/java/com/kamishibai/` - Main application code
+  - `config/` - Configuration classes
+  - `controller/` - REST and MVC controllers
+  - `dto/` - Data Transfer Objects
+  - `model/` - Domain models
+  - `repository/` - Data access layer
+  - `security/` - Security configuration
+  - `service/` - Business logic
+
+### Testing
+
+Run tests with:
+```bash
+./gradlew test
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
