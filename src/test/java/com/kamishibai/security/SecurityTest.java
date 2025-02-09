@@ -5,6 +5,7 @@ import com.kamishibai.config.TestSecurityConfig;
 import com.kamishibai.controller.AccountController;
 import com.kamishibai.controller.BoardController;
 import com.kamishibai.controller.HomeController;
+import com.kamishibai.controller.RegisterController;
 import com.kamishibai.model.Account;
 import com.kamishibai.model.Board;
 import com.kamishibai.service.AccountService;
@@ -36,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = {HomeController.class, BoardController.class, AccountController.class},
+@WebMvcTest(controllers = {HomeController.class, BoardController.class, AccountController.class, RegisterController.class},
         excludeAutoConfiguration = SecurityAutoConfiguration.class)
 @Import(TestSecurityConfig.class)
 @AutoConfigureMockMvc

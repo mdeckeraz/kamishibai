@@ -27,22 +27,21 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/h2-console/**")
+                .ignoringRequestMatchers("/h2-console/**", "/api/accounts/register")
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/",
-                    "/register",
                     "/login",
-                    "/api/accounts/register",
-                    "/api/accounts/login",
+                    "/register",
+                    "/h2-console/**",
+                    "/health",
                     "/css/**",
                     "/js/**",
                     "/images/**",
                     "/webjars/**",
-                    "/h2-console/**",
-                    "/error",
-                    "/favicon.ico"
+                    "/favicon.ico",
+                    "/api/accounts/register"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
@@ -57,9 +56,8 @@ public class SecurityConfig {
                 .logoutSuccessUrl("/login?logout")
                 .permitAll()
             )
-            .headers(headers -> headers
-                .frameOptions().sameOrigin()
-                .permissionsPolicy(policy -> policy.policy("interest-cohort=()")));
+            .headers(headers -> headers.frameOptions().disable())
+            .cors().disable();
 
         return http.build();
     }

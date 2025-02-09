@@ -28,15 +28,6 @@ public class HomeController {
         return "auth/login";
     }
 
-    @GetMapping("/register")
-    public String register() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-            return "redirect:/dashboard";
-        }
-        return "auth/register";
-    }
-
     @GetMapping("/dashboard")
     public String dashboard() {
         return "dashboard";
