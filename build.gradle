@@ -63,6 +63,8 @@ dependencies {
     // Database dependencies
     implementation 'com.h2database:h2'
     implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+    implementation 'com.google.cloud:spring-cloud-gcp-starter-sql-mysql'
     
     // Development tools
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

@@ -1,0 +1,3 @@
+-- Initial schema migration
+-- This is a placeholder migration since we're using baseline-on-migrate=true
+-- The actual schema is already in place
