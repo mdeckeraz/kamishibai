@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalTime;
+
 public class CardRequest {
     @NotBlank(message = "Card title is required")
     @Size(min = 1, max = 200, message = "Title must be between 1 and 200 characters")
@@ -17,7 +19,7 @@ public class CardRequest {
     private Integer position;
 
     @NotNull(message = "Reset time is required")
-    private String resetTime;
+    private LocalTime resetTime;
 
     private CardState state;
 
@@ -46,11 +48,11 @@ public class CardRequest {
         this.position = position;
     }
 
-    public String getResetTime() {
+    public LocalTime getResetTime() {
         return resetTime;
     }
 
-    public void setResetTime(String resetTime) {
+    public void setResetTime(LocalTime resetTime) {
         this.resetTime = resetTime;
     }
 

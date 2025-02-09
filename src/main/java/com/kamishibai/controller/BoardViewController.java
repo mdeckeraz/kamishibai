@@ -3,23 +3,31 @@ package com.kamishibai.controller;
 import com.kamishibai.dto.BoardRequest;
 import com.kamishibai.model.Account;
 import com.kamishibai.model.Board;
+import com.kamishibai.model.Card;
+import com.kamishibai.model.CardState;
 import com.kamishibai.security.CustomUserDetails;
 import com.kamishibai.service.AccountService;
 import com.kamishibai.service.BoardService;
+import com.kamishibai.service.CardService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/boards")
 public class BoardViewController {
     private final BoardService boardService;
     private final AccountService accountService;
+    private final CardService cardService;
 
-    public BoardViewController(BoardService boardService, AccountService accountService) {
+    public BoardViewController(BoardService boardService, AccountService accountService, CardService cardService) {
         this.boardService = boardService;
         this.accountService = accountService;
+        this.cardService = cardService;
     }
 
     @GetMapping
@@ -35,7 +43,22 @@ public class BoardViewController {
         Board board = boardService.getBoardById(id, account)
                 .orElseThrow(() -> new IllegalArgumentException("Board not found"));
 
+        // Get all cards for this board
+        List<Card> cards = cardService.getCardsByBoardId(id);
+        
+        // Split cards into red and green lists
+        List<Card> redCards = cards.stream()
+                .filter(card -> card.getState() == CardState.RED)
+                .collect(Collectors.toList());
+        
+        List<Card> greenCards = cards.stream()
+                .filter(card -> card.getState() == CardState.GREEN)
+                .collect(Collectors.toList());
+
         model.addAttribute("board", board);
+        model.addAttribute("redCards", redCards);
+        model.addAttribute("greenCards", greenCards);
+        
         return "boards/view";
     }
 

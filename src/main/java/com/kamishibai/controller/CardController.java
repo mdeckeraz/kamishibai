@@ -8,19 +8,23 @@ import com.kamishibai.repository.CardRepository;
 import com.kamishibai.security.CustomUserDetails;
 import com.kamishibai.service.CardService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-@Controller
-@RequestMapping("/boards/{boardId}/cards")
+@RestController
+@RequestMapping("/api/boards/{boardId}/cards")
 public class CardController {
+    private static final Logger logger = LoggerFactory.getLogger(CardController.class);
+    
     private final CardService cardService;
     private final CardRepository cardRepository;
     private final BoardRepository boardRepository;
@@ -47,85 +51,55 @@ public class CardController {
     }
 
     @GetMapping
-    public String listCards(@PathVariable Long boardId, Model model, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<List<Card>> getCards(@PathVariable Long boardId, @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
             List<Card> cards = cardService.getCardsByBoardId(boardId);
-            model.addAttribute("cards", cards);
-            model.addAttribute("boardId", boardId);
-            model.addAttribute("board", board);
-            return "cards/list";
+            return ResponseEntity.ok(cards);
         } catch (IllegalStateException e) {
-            return "error/403";
-        }
-    }
-
-    @GetMapping("/create")
-    public String createCardForm(@PathVariable Long boardId, Model model, @AuthenticationPrincipal CustomUserDetails userDetails) {
-        try {
-            Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
-            model.addAttribute("card", new Card());
-            model.addAttribute("boardId", boardId);
-            model.addAttribute("board", board);
-            return "cards/form";
-        } catch (IllegalStateException e) {
-            return "error/403";
-        }
-    }
-
-    @GetMapping("/{cardId}/edit")
-    public String editCardForm(@PathVariable Long boardId, @PathVariable Long cardId, Model model, @AuthenticationPrincipal CustomUserDetails userDetails) {
-        try {
-            Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
-            Card card = cardRepository.findById(cardId)
-                    .orElseThrow(() -> new IllegalArgumentException("Card not found"));
-            
-            if (!card.getBoard().getId().equals(boardId)) {
-                return "error/403";
-            }
-
-            model.addAttribute("card", card);
-            model.addAttribute("boardId", boardId);
-            model.addAttribute("board", board);
-            return "cards/form";
-        } catch (IllegalStateException e) {
-            return "error/403";
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
     }
 
     @PostMapping
-    public String createCard(
+    public ResponseEntity<Map<String, Object>> createCard(
             @PathVariable Long boardId,
-            @Valid @ModelAttribute("card") Card card,
-            BindingResult bindingResult,
-            Model model,
+            @Valid @RequestBody CardRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         try {
+            logger.info("Creating card for board {} with request: {}", boardId, request);
+            
             Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
-
-            if (bindingResult.hasErrors()) {
-                model.addAttribute("boardId", boardId);
-                model.addAttribute("board", board);
-                return "cards/form";
-            }
-
+            
+            Card card = new Card();
+            card.setTitle(request.getTitle());
+            card.setDetails(request.getDetails());
+            card.setState(CardState.RED); // Always start with RED
+            card.setResetTime(request.getResetTime() != null ? request.getResetTime() : LocalTime.MIDNIGHT);
             card.setBoard(board);
-            cardService.createCard(card);
-
-            return "redirect:/boards/" + boardId;
-        } catch (IllegalStateException e) {
-            return "error/403";
+            card.setPosition(request.getPosition() != null ? request.getPosition() : 0);
+            
+            Card createdCard = cardService.createCard(card);
+            logger.info("Successfully created card {} for board {}", createdCard.getId(), boardId);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", createdCard.getId());
+            response.put("message", "Card created successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error creating card for board {}: {}", boardId, e.getMessage(), e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Failed to create card: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     @PutMapping("/{cardId}")
-    public String updateCard(
+    public ResponseEntity<Map<String, Object>> updateCard(
             @PathVariable Long boardId,
             @PathVariable Long cardId,
-            @Valid @ModelAttribute("card") Card updatedCard,
-            BindingResult bindingResult,
-            Model model,
+            @Valid @RequestBody CardRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         try {
@@ -134,36 +108,41 @@ public class CardController {
                     .orElseThrow(() -> new IllegalArgumentException("Card not found"));
 
             if (!existingCard.getBoard().getId().equals(boardId)) {
-                return "error/403";
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 
-            if (bindingResult.hasErrors()) {
-                model.addAttribute("boardId", boardId);
-                model.addAttribute("board", board);
-                return "cards/form";
-            }
+            existingCard.setTitle(request.getTitle());
+            existingCard.setDetails(request.getDetails());
+            existingCard.setState(request.getState());
+            existingCard.setResetTime(request.getResetTime());
+            existingCard.setPosition(request.getPosition());
 
-            existingCard.setTitle(updatedCard.getTitle());
-            existingCard.setDetails(updatedCard.getDetails());
-            existingCard.setState(updatedCard.getState());
-            existingCard.setResetTime(updatedCard.getResetTime());
-            cardRepository.save(existingCard);
-
-            return "redirect:/boards/" + boardId;
+            Card updatedCard = cardService.updateCard(cardId, existingCard);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", updatedCard.getId());
+            response.put("message", "Card updated successfully");
+            return ResponseEntity.ok(response);
         } catch (IllegalStateException e) {
-            return "error/403";
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Failed to update card: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
-    // REST endpoints for AJAX calls
     @PostMapping("/{cardId}/toggle")
-    @ResponseBody
-    public ResponseEntity<CardResponse> toggleCardState(
+    public ResponseEntity<Map<String, Object>> toggleCardState(
             @PathVariable Long boardId,
             @PathVariable Long cardId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
-            getBoardAndCheckAccess(boardId, userDetails.getAccount());
+            logger.info("Toggling card state for card {} in board {}", cardId, boardId);
+            
+            Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
             Card card = cardRepository.findById(cardId)
                     .orElseThrow(() -> new IllegalArgumentException("Card not found"));
 
@@ -172,20 +151,32 @@ public class CardController {
             }
 
             CardResponse response = cardService.toggleCardState(card);
-            return ResponseEntity.ok(response);
+            logger.info("Successfully toggled card state for card {} in board {}", cardId, boardId);
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("id", response.getId());
+            responseBody.put("state", response.getState());
+            return ResponseEntity.ok(responseBody);
         } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        } catch (Exception e) {
+            logger.error("Error toggling card state for card {} in board {}: {}", cardId, boardId, e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Failed to toggle card state: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
     @GetMapping("/{cardId}/audit")
-    @ResponseBody
     public ResponseEntity<List<CardAudit>> getCardAuditLog(
             @PathVariable Long boardId,
             @PathVariable Long cardId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
-            getBoardAndCheckAccess(boardId, userDetails.getAccount());
+            logger.info("Getting audit log for card {} in board {}", cardId, boardId);
+            
+            Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
             Card card = cardRepository.findById(cardId)
                     .orElseThrow(() -> new IllegalArgumentException("Card not found"));
 
@@ -194,9 +185,13 @@ public class CardController {
             }
 
             List<CardAudit> auditLog = cardService.getCardAuditLog(card);
+            logger.info("Successfully retrieved audit log for card {} in board {}", cardId, boardId);
             return ResponseEntity.ok(auditLog);
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            logger.error("Error getting audit log for card {} in board {}: {}", cardId, boardId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }
