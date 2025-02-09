@@ -62,7 +62,7 @@ public class BoardViewController {
         return "boards/view";
     }
 
-    @GetMapping("/create")
+    @GetMapping("/form")
     public String createBoardForm(Model model) {
         model.addAttribute("board", new Board());
         return "boards/form";

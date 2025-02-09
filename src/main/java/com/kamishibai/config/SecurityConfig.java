@@ -57,7 +57,9 @@ public class SecurityConfig {
                 .logoutSuccessUrl("/login?logout")
                 .permitAll()
             )
-            .headers(headers -> headers.frameOptions().disable());
+            .headers(headers -> headers
+                .frameOptions().sameOrigin()
+                .permissionsPolicy(policy -> policy.policy("interest-cohort=()")));
 
         return http.build();
     }

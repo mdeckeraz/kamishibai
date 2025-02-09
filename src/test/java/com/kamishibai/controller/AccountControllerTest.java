@@ -2,6 +2,7 @@ package com.kamishibai.controller;
 
 import com.kamishibai.config.TestDatabaseConfig;
 import com.kamishibai.config.TestSecurityConfig;
+import com.kamishibai.config.TestWebConfig;
 import com.kamishibai.dto.AccountRequest;
 import com.kamishibai.model.Account;
 import com.kamishibai.service.AccountService;
@@ -12,6 +13,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,7 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AccountController.class)
-@Import({TestSecurityConfig.class, TestDatabaseConfig.class})
+@Import({TestSecurityConfig.class, TestDatabaseConfig.class, TestWebConfig.class})
 @TestPropertySource(locations = "classpath:application-test.properties")
 @ActiveProfiles("test")
 class AccountControllerTest {
@@ -59,6 +61,7 @@ class AccountControllerTest {
         when(accountService.createAccount(any(AccountRequest.class))).thenReturn(testAccount);
 
         mockMvc.perform(post("/api/accounts/register")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testAccountRequest)))
                 .andExpect(status().isOk())
@@ -74,6 +77,7 @@ class AccountControllerTest {
             .thenThrow(new IllegalArgumentException("An account with this email already exists"));
 
         mockMvc.perform(post("/api/accounts/register")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testAccountRequest)))
                 .andExpect(status().isBadRequest())

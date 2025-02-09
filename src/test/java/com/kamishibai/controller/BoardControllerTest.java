@@ -2,6 +2,7 @@ package com.kamishibai.controller;
 
 import com.kamishibai.config.TestDatabaseConfig;
 import com.kamishibai.config.TestSecurityConfig;
+import com.kamishibai.config.TestWebConfig;
 import com.kamishibai.dto.BoardRequest;
 import com.kamishibai.model.Account;
 import com.kamishibai.model.Board;
@@ -29,7 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(BoardController.class)
-@Import({TestSecurityConfig.class, TestDatabaseConfig.class})
+@Import({TestSecurityConfig.class, TestDatabaseConfig.class, TestWebConfig.class})
 @TestPropertySource(locations = "classpath:application-test.properties")
 class BoardControllerTest {
 
@@ -79,6 +80,7 @@ class BoardControllerTest {
 
         mockMvc.perform(post("/api/boards")
                 .with(SecurityMockMvcRequestPostProcessors.user(userDetails))
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testBoardRequest)))
                 .andExpect(status().isOk())

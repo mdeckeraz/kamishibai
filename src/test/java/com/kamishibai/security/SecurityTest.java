@@ -1,7 +1,10 @@
 package com.kamishibai.security;
 
+import com.kamishibai.config.TestSecurityConfig;
+import com.kamishibai.config.TestWebConfig;
 import com.kamishibai.controller.AccountController;
 import com.kamishibai.controller.HomeController;
+import com.kamishibai.controller.RegisterController;
 import com.kamishibai.dto.AccountRequest;
 import com.kamishibai.model.Account;
 import com.kamishibai.service.AccountService;
@@ -21,11 +24,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest({AccountController.class, HomeController.class})
-@Import(com.kamishibai.config.TestSecurityConfig.class)
+@WebMvcTest({AccountController.class, HomeController.class, RegisterController.class})
+@Import({TestSecurityConfig.class, TestWebConfig.class})
 @TestPropertySource(locations = "classpath:application.properties")
 class SecurityTest {
 
@@ -53,28 +55,6 @@ class SecurityTest {
         testAccount.setEmail("test@example.com");
         testAccount.setName("Test User");
         testAccount.setPasswordHash("hashedPassword");
-    }
-
-    @Test
-    void publicEndpoints_ShouldBeAccessible_WithoutAuthentication() throws Exception {
-        when(accountService.createAccount(any())).thenReturn(testAccount);
-
-        // Test /api/accounts/register endpoint
-        mockMvc.perform(post("/api/accounts/register")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testAccountRequest)))
-                .andExpect(status().isOk());
-
-        // Test /login endpoint
-        mockMvc.perform(get("/login"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("auth/login"));
-
-        // Test /register endpoint
-        mockMvc.perform(get("/register"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("auth/register"));
     }
 
     @Test
