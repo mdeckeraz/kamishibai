@@ -7,14 +7,12 @@
     <h1>Login</h1>
     <form th:action="@{/login}" method="post">
         <div>
-            <label>Email: <input type="text" name="username"/></label>
+            <label>Email: <input type="email" name="username" required /></label>
         </div>
         <div>
-            <label>Password: <input type="password" name="password"/></label>
+            <label>Password: <input type="password" name="password" required /></label>
         </div>
-        <div>
-            <input type="submit" value="Login"/>
-        </div>
+        <button type="submit">Login</button>
     </form>
 </body>
 </html>

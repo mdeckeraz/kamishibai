@@ -2,7 +2,6 @@ package com.kamishibai.controller;
 
 import com.kamishibai.config.TestDatabaseConfig;
 import com.kamishibai.config.TestSecurityConfig;
-import com.kamishibai.config.TestWebConfig;
 import com.kamishibai.dto.BoardRequest;
 import com.kamishibai.model.Account;
 import com.kamishibai.model.Board;
@@ -16,7 +15,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,11 +24,13 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(BoardController.class)
-@Import({TestSecurityConfig.class, TestDatabaseConfig.class, TestWebConfig.class})
+@Import({TestSecurityConfig.class, TestDatabaseConfig.class})
 @TestPropertySource(locations = "classpath:application-test.properties")
 class BoardControllerTest {
 
@@ -79,8 +79,8 @@ class BoardControllerTest {
         when(boardService.createBoard(any(Board.class), any(Account.class))).thenReturn(testBoard);
 
         mockMvc.perform(post("/api/boards")
-                .with(SecurityMockMvcRequestPostProcessors.user(userDetails))
-                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                .with(csrf())
+                .with(user(userDetails))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testBoardRequest)))
                 .andExpect(status().isOk())
@@ -95,7 +95,7 @@ class BoardControllerTest {
         when(boardService.getBoardsForUser(any(Account.class))).thenReturn(Arrays.asList(testBoard));
 
         mockMvc.perform(get("/api/boards")
-                .with(SecurityMockMvcRequestPostProcessors.user(userDetails)))
+                .with(user(userDetails)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$[0].id").value(1))

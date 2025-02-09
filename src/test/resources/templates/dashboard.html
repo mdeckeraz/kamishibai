@@ -5,6 +5,11 @@
 </head>
 <body>
     <h1>Dashboard</h1>
-    <div>Welcome to your dashboard!</div>
+    <div>
+        <h2>Your Boards</h2>
+        <div th:each="board : ${boards}">
+            <h3 th:text="${board.name}">Board Name</h3>
+        </div>
+    </div>
 </body>
 </html>
