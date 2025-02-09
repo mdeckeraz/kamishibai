@@ -2,30 +2,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector("meta[name='_csrf']").getAttribute("content");
     const csrfHeader = document.querySelector("meta[name='_csrf_header']").getAttribute("content");
 
-    function handleCardClick(event) {
+    function handleCardClick(cardBody) {
+        console.log('handleCardClick called');
+        const card = cardBody.closest('.card');
+        const cardId = card.getAttribute('data-card-id');
+        const boardId = card.getAttribute('data-board-id');
+
         // Don't toggle if clicking the edit button or its parent
         if (event.target.closest('.btn-outline-secondary')) {
             return;
         }
 
-        const card = event.currentTarget;
-        const cardId = card.getAttribute('data-card-id');
-        const boardId = card.getAttribute('data-board-id');
+        console.log('Toggling card:', cardId, 'on board:', boardId);
 
         // Send request to toggle card state
         fetch(`/boards/${boardId}/cards/${cardId}/toggle`, {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 [csrfHeader]: csrfToken
-            }
+            },
+            credentials: 'same-origin'
         })
         .then(response => {
+            console.log('Response status:', response.status);
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
             return response.json();
         })
         .then(data => {
+            console.log('Toggle response:', data);
             // Get the target container based on new state
             const targetContainer = data.state === 'GREEN' 
                 ? document.querySelector('.card-header-green').closest('.card').querySelector('.card-list')
@@ -43,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error:', error);
-            // Optionally show an error message to the user
+            alert('Failed to toggle card state');
         });
     }
 
@@ -73,9 +80,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Add click handlers to all cards
-    document.querySelectorAll('.card-red, .card-green').forEach(card => {
-        card.style.cursor = 'pointer';
-        card.addEventListener('click', handleCardClick);
+    // Add click handlers to all card bodies
+    document.querySelectorAll('.card-red .card-body, .card-green .card-body').forEach(cardBody => {
+        cardBody.style.cursor = 'pointer';
+        cardBody.onclick = function(event) {
+            handleCardClick(this);
+        };
     });
 });
