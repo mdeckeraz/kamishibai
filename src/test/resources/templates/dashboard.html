@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+    <h1>Dashboard</h1>
+    <div>
+        <h2>Your Boards</h2>
+        <div th:each="board : ${boards}">
+            <h3 th:text="${board.name}">Board Name</h3>
+        </div>
+    </div>
+</body>
+</html>

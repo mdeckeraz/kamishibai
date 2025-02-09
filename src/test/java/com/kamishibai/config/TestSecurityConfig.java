@@ -1,14 +1,17 @@
 package com.kamishibai.config;
 
+import com.kamishibai.model.Account;
+import com.kamishibai.security.CustomUserDetails;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 
 @TestConfiguration
 @EnableWebSecurity
@@ -17,10 +20,14 @@ public class TestSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(csrfTokenRepository())
+                .ignoringRequestMatchers("/api/accounts/register"))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/login", "/register", "/api/accounts/register",
+                .requestMatchers("/api/accounts/register").permitAll()
+                .requestMatchers("/", "/login", "/register",
                     "/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
+                .requestMatchers("/api/**").authenticated()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form
@@ -37,13 +44,27 @@ public class TestSecurityConfig {
     }
 
     @Bean
-    public UserDetailsService userDetailsService() {
-        UserDetails testUser = User.builder()
-            .username("test@example.com")
-            .password("{noop}password123")
-            .roles("USER")
-            .build();
+    public CsrfTokenRepository csrfTokenRepository() {
+        HttpSessionCsrfTokenRepository repository = new HttpSessionCsrfTokenRepository();
+        repository.setHeaderName("X-CSRF-TOKEN");
+        return repository;
+    }
 
-        return new InMemoryUserDetailsManager(testUser);
+    @Bean("customUserDetailsService")
+    public UserDetailsService userDetailsService() {
+        return new UserDetailsService() {
+            @Override
+            public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+                if ("test@example.com".equals(username)) {
+                    Account testAccount = new Account();
+                    testAccount.setId(1L);
+                    testAccount.setEmail("test@example.com");
+                    testAccount.setName("Test User");
+                    testAccount.setPasswordHash("{noop}password123");
+                    return new CustomUserDetails(testAccount);
+                }
+                throw new UsernameNotFoundException("User not found");
+            }
+        };
     }
 }

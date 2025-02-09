@@ -7,7 +7,6 @@ import com.kamishibai.dto.AccountRequest;
 import com.kamishibai.dto.BoardResponse;
 import com.kamishibai.model.Account;
 import com.kamishibai.model.Board;
-import com.kamishibai.security.WithMockCustomUser;
 import com.kamishibai.service.AccountService;
 import com.kamishibai.service.BoardService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,6 +17,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,9 +27,11 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 @WebMvcTest({AccountController.class, BoardController.class, HomeController.class})
 @Import({TestSecurityConfig.class, TestWebMvcConfig.class})
@@ -83,6 +86,7 @@ public class SecurityConfigIntegrationTest {
 
         // Test /api/accounts/register endpoint
         mockMvc.perform(post("/api/accounts/register")
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testAccountRequest)))
                 .andExpect(status().isOk());
@@ -101,47 +105,70 @@ public class SecurityConfigIntegrationTest {
     @Test
     void protectedEndpoints_ShouldRequireAuthentication() throws Exception {
         // Test /api/boards endpoint
-        mockMvc.perform(get("/api/boards"))
+        mockMvc.perform(get("/api/boards")
+                .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("http://localhost/login"));
 
-        // Test /api/accounts/{id} endpoint
-        mockMvc.perform(get("/api/accounts/1"))
+        // Test /api/boards/{id} endpoint
+        mockMvc.perform(get("/api/boards/1")
+                .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("http://localhost/login"));
+
+        // Test /dashboard endpoint
+        mockMvc.perform(get("/dashboard")
+                .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("http://localhost/login"));
     }
 
     @Test
-    @WithMockCustomUser(id = 1L, email = "test@example.com", name = "Test User")
+    @WithUserDetails("test@example.com")
     void protectedEndpoints_ShouldBeAccessible_WithAuthentication() throws Exception {
+        // Mock accountService to return the test account for both ID and email lookups
         when(accountService.getAccount(1L)).thenReturn(testAccount);
-        when(boardService.getBoardsForUser(any())).thenReturn(List.of(testBoard));
+        when(accountService.getAccountByEmail("test@example.com")).thenReturn(java.util.Optional.of(testAccount));
+        
+        // Mock boardService responses
+        when(boardService.getBoardsForUser(testAccount)).thenReturn(List.of(testBoard));
+        when(boardService.getBoardById(1L, testAccount)).thenReturn(java.util.Optional.of(testBoard));
+
+        // Test /dashboard endpoint
+        mockMvc.perform(get("/dashboard")
+                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(view().name("dashboard"));
 
         // Test /api/boards endpoint
-        mockMvc.perform(get("/api/boards"))
+        mockMvc.perform(get("/api/boards")
+                .with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].name").value("Test Board"));
 
-        // Test /api/accounts/{id} endpoint
-        mockMvc.perform(get("/api/accounts/1"))
-                .andExpect(status().isOk());
+        // Test /api/boards/{id} endpoint
+        mockMvc.perform(get("/api/boards/1")
+                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Test Board"));
     }
 
     @Test
     void staticResources_ShouldBeAccessible_WithoutAuthentication() throws Exception {
         // Test CSS resource
-        mockMvc.perform(get("/css/styles.css")
-                .accept(MediaType.parseMediaType("text/css")))
+        mockMvc.perform(get("/css/styles.css"))
                 .andExpect(status().isOk());
 
-        // Test JavaScript resource
-        mockMvc.perform(get("/js/main.js")
-                .accept(MediaType.parseMediaType("application/javascript")))
+        // Test JS resource
+        mockMvc.perform(get("/js/main.js"))
                 .andExpect(status().isOk());
 
-        // Test image resource
-        mockMvc.perform(get("/images/logo.png")
-                .accept(MediaType.parseMediaType("image/png")))
+        // Test images resource
+        mockMvc.perform(get("/images/logo.png"))
                 .andExpect(status().isOk());
     }
 }
