@@ -54,6 +54,37 @@ The application will be available at `http://localhost:8080`
 
 ## Development
 
+### Configuration Setup
+
+Before running or deploying the application, you need to set up the following configuration files:
+
+1. **Application Properties**
+   - Copy `src/main/resources/application-prod.example.properties` to `src/main/resources/application-prod.properties`
+   - Update the following values in your new file:
+     - Database configuration (spring.cloud.gcp.sql.*)
+     - Database credentials (DB_USER, DB_PASS)
+     - Admin credentials (ADMIN_USERNAME, ADMIN_PASSWORD)
+
+2. **App Engine Configuration**
+   - Copy `src/main/appengine/app.example.yaml` to `src/main/appengine/app.yaml`
+   - Update the following values:
+     - Database credentials (DB_USER, DB_PASS)
+     - Admin credentials (ADMIN_USERNAME, ADMIN_PASSWORD)
+     - Any other environment-specific variables
+
+### App Engine Deployment
+
+1. Ensure you have all configuration files set up as described above
+2. Build the application:
+   ```bash
+   ./gradlew clean build
+   ```
+
+3. Deploy to App Engine:
+   ```bash
+   ./deploy-to-gae.sh
+   ```
+
 ### Project Structure
 
 - `src/main/java/com/kamishibai/` - Main application code
