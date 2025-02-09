@@ -122,30 +122,28 @@
         <div class="mb-4">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a th:href="@{/boards}" class="text-decoration-none">Boards</a></li>
-                    <li class="breadcrumb-item active" th:text="${board.name}">Board Name</li>
+                    <li class="breadcrumb-item"><a th:href="@{/boards}">Boards</a></li>
+                    <li class="breadcrumb-item active" th:text="${board.name}" aria-current="page">Board Name</li>
                 </ol>
             </nav>
-            <div class="d-flex justify-content-between align-items-start">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0" th:text="${board.name}">Board Name</h2>
                 <div>
-                    <h2 class="mb-2" th:text="${board.name}">Board Name</h2>
-                    <p class="text-muted mb-0" th:text="${board.description}">Board Description</p>
-                    <small class="text-muted">
-                        <i class="bi bi-person me-1"></i>
-                        Created by <span th:text="${board.owner.name}">Owner Name</span>
-                    </small>
-                </div>
-                <div>
-                    <a th:href="@{/boards/{id}/cards/create(id=${board.id})}" class="btn btn-primary me-2">
-                        <i class="bi bi-plus-lg me-1"></i> Add Card
-                    </a>
-                    <a th:if="${board.owner.id == #authentication.principal.id}"
+                    <a th:if="${board.owner.id == #authentication.principal.id}" 
                        th:href="@{/boards/{id}/edit(id=${board.id})}" 
-                       class="btn btn-outline-secondary">
-                        <i class="bi bi-pencil me-1"></i> Edit Board
+                       class="btn btn-outline-primary me-2">
+                        <i class="bi bi-pencil"></i> Edit Board
+                    </a>
+                    <a th:href="@{/boards/{id}/cards/create(id=${board.id})}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg"></i> Add Card
                     </a>
                 </div>
             </div>
+            <p class="text-muted mb-4" th:text="${board.description}">Board description goes here.</p>
+            <small class="text-muted">
+                <i class="bi bi-person me-1"></i>
+                Created by <span th:text="${board.owner.name}">Owner Name</span>
+            </small>
         </div>
 
         <!-- Cards Section -->
@@ -154,10 +152,7 @@
             <div class="col-md-6">
                 <div class="card shadow-sm">
                     <div class="card-header card-header-red">
-                        <h5 class="mb-0">
-                            <i class="bi bi-x-circle me-2"></i>
-                            Problems
-                        </h5>
+                        <h5 class="mb-0 text-white">Tasks Outstanding</h5>
                     </div>
                     <div class="card-body card-list">
                         <div th:if="${#lists.isEmpty(redCards)}" class="text-center text-muted py-4">
@@ -170,9 +165,8 @@
                              class="card card-red mb-3">
                             <div class="card-body">
                                 <h6 class="card-title" th:text="${card.title}">Card Title</h6>
-                                <p class="card-text small" th:text="${card.details}">Card Details</p>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted" th:text="${#temporals.format(card.createdAt, 'MMM dd, yyyy')}">Date</small>
+                                <p class="card-text" th:text="${card.details}">Card Details</p>
+                                <div class="d-flex justify-content-end">
                                     <div>
                                         <button class="btn btn-outline-primary btn-sm btn-toggle me-2" onclick="toggleCard(this)">
                                             <i class="bi bi-arrow-repeat"></i>
@@ -193,10 +187,7 @@
             <div class="col-md-6">
                 <div class="card shadow-sm">
                     <div class="card-header card-header-green">
-                        <h5 class="mb-0">
-                            <i class="bi bi-check-circle me-2"></i>
-                            Solutions
-                        </h5>
+                        <h5 class="mb-0 text-white">Completed</h5>
                     </div>
                     <div class="card-body card-list">
                         <div th:if="${#lists.isEmpty(greenCards)}" class="text-center text-muted py-4">
@@ -209,9 +200,12 @@
                              class="card card-green mb-3">
                             <div class="card-body">
                                 <h6 class="card-title" th:text="${card.title}">Card Title</h6>
-                                <p class="card-text small" th:text="${card.details}">Card Details</p>
+                                <p class="card-text" th:text="${card.details}">Card Details</p>
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted" th:text="${#temporals.format(card.createdAt, 'MMM dd, yyyy')}">Date</small>
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock-history"></i>
+                                        Resets at: <span th:text="${#temporals.format(card.resetTime, 'h:mm a')}">Reset time</span>
+                                    </small>
                                     <div>
                                         <button class="btn btn-outline-primary btn-sm btn-toggle me-2" onclick="toggleCard(this)">
                                             <i class="bi bi-arrow-repeat"></i>
