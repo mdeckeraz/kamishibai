@@ -36,9 +36,9 @@ out/
 ### VS Code ###
 .vscode/
 
-### Application specific ###
-application-local.properties
-*.log
+### Application Properties ###
+src/main/resources/application-*.properties
+!src/main/resources/application-*.example.properties
 
 ### Compiled files ###
 *.jar
@@ -59,10 +59,6 @@ src/main/appengine/app.yaml
 !src/main/appengine/app.example.yaml
 
 ### Sensitive Files ###
-src/main/resources/application-dev.properties
-src/main/resources/application-prod.properties
-**/application-*.properties
-!**/application-example.properties
 setup-env.sh
 *.env
 .env*
