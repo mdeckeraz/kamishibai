@@ -55,3 +55,31 @@ application-local.properties
 ### App Engine ###
 src/main/appengine/*.jar
 src/main/appengine/*.war
+src/main/appengine/app.yaml
+!src/main/appengine/app.example.yaml
+
+### Sensitive Files ###
+src/main/resources/application-dev.properties
+src/main/resources/application-prod.properties
+**/application-*.properties
+!**/application-example.properties
+setup-env.sh
+*.env
+.env*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+
+### Secrets and Credentials ###
+**/secrets/
+**/credentials/
+**/config/secrets.*
+**/application-secrets.*
+
+### Local Development ###
+data/
+logs/
+*.log.*
