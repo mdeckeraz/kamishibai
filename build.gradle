@@ -78,7 +78,8 @@ dependencies {
     implementation 'com.h2database:h2'
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-mysql'
-    implementation 'com.google.cloud:spring-cloud-gcp-starter-sql-mysql'
+    implementation 'com.google.cloud:spring-cloud-gcp-starter-sql-mysql:4.8.4'
+    implementation 'mysql:mysql-connector-java:8.0.33'
     
     // Development tools
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -91,6 +92,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom "com.google.cloud:spring-cloud-gcp-dependencies:${springCloudGcpVersion}"
+        mavenBom 'com.google.cloud:libraries-bom:26.34.0'
     }
 }
 

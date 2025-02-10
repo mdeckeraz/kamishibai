@@ -1,23 +1,15 @@
 package com.kamishibai.service;
 
 import com.kamishibai.model.*;
+import com.kamishibai.repository.*;
 import com.kamishibai.dto.CardResponse;
-import com.kamishibai.repository.CardAuditRepository;
-import com.kamishibai.repository.CardRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -25,10 +17,11 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class CardServiceTest {
+public class CardServiceTest {
 
     @Mock
     private CardRepository cardRepository;
@@ -37,35 +30,39 @@ class CardServiceTest {
     private CardAuditRepository cardAuditRepository;
 
     private CardService cardService;
-
     private Card testCard;
     private Board testBoard;
     private Account testAccount;
+    private Clock fixedClock;
 
     @BeforeEach
     void setUp() {
-        cardRepository = mock(CardRepository.class);
-        cardAuditRepository = mock(CardAuditRepository.class);
-        cardService = new CardService(cardRepository, cardAuditRepository);
+        // Fix the clock to 2025-02-09 23:15:00 PST
+        fixedClock = Clock.fixed(
+            LocalDateTime.of(2025, 2, 9, 23, 15, 0).atZone(ZoneId.systemDefault()).toInstant(),
+            ZoneId.systemDefault()
+        );
+        cardService = new CardService(cardRepository, cardAuditRepository, fixedClock);
+
+        testBoard = new Board();
+        testBoard.setId(1L);
+        testBoard.setName("Test Board");
 
         testAccount = new Account();
         testAccount.setId(1L);
         testAccount.setEmail("test@example.com");
         testAccount.setName("Test User");
-        testAccount.setPasswordHash("hashedPassword");
+        testAccount.setPasswordHash("$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG"); // "password" hashed
 
-        testBoard = new Board();
-        testBoard.setId(1L);
-        testBoard.setName("Test Board");
         testBoard.setOwner(testAccount);
 
         testCard = new Card();
         testCard.setId(1L);
         testCard.setTitle("Test Card");
         testCard.setDetails("Test Details");
-        testCard.setPosition(0);
-        testCard.setState(CardState.GREEN);
         testCard.setBoard(testBoard);
+        testCard.setState(CardState.GREEN);
+        testCard.setResetTime(LocalTime.of(23, 0)); // 11:00 PM
     }
 
     @Test
@@ -304,18 +301,36 @@ class CardServiceTest {
         card.setResetTime(LocalTime.of(23, 0)); // 11:00 PM
 
         CardAudit lastAudit = new CardAudit();
+        lastAudit.setCard(card);
         lastAudit.setTimestamp(LocalDateTime.of(2025, 2, 9, 22, 0)); // 10:00 PM today
+        lastAudit.setPreviousState(CardState.RED);
+        lastAudit.setNewState(CardState.GREEN);
 
-        when(cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN))
-            .thenReturn(Optional.of(lastAudit));
+        // Current time is 23:15, which is after the reset time of 23:00
+        when(cardRepository.findByStateAndResetTimeLessThanEqual(eq(CardState.GREEN), any()))
+            .thenReturn(Arrays.asList(card));
 
         // When
-        cardService.checkAndResetCardState(card);
+        cardService.resetCards();
 
         // Then
-        verify(cardRepository).save(card);
-        verify(cardAuditRepository).save(any(CardAudit.class));
-        assertEquals(CardState.RED, card.getState());
+        // Verify card was saved with RED state
+        ArgumentCaptor<Card> savedCardCaptor = ArgumentCaptor.forClass(Card.class);
+        verify(cardRepository).save(savedCardCaptor.capture());
+        Card savedCard = savedCardCaptor.getValue();
+        assertEquals(CardState.RED, savedCard.getState());
+
+        // Verify audit entry was created
+        ArgumentCaptor<CardAudit> auditCaptor = ArgumentCaptor.forClass(CardAudit.class);
+        verify(cardAuditRepository).save(auditCaptor.capture());
+        CardAudit savedAudit = auditCaptor.getValue();
+        assertEquals(CardState.GREEN, savedAudit.getPreviousState());
+        assertEquals(CardState.RED, savedAudit.getNewState());
+        assertEquals(card, savedAudit.getCard());
+        
+        // Verify timestamp is from our fixed clock
+        LocalDateTime expectedTime = LocalDateTime.of(2025, 2, 9, 23, 15, 0);
+        assertEquals(expectedTime, savedAudit.getTimestamp());
     }
 
     @Test

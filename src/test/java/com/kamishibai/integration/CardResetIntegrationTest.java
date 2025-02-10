@@ -3,16 +3,16 @@ package com.kamishibai.integration;
 import com.kamishibai.model.*;
 import com.kamishibai.repository.*;
 import com.kamishibai.service.CardService;
+import com.kamishibai.config.TestConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@Import(TestConfig.class)
 public class CardResetIntegrationTest {
 
     @Autowired
@@ -37,21 +38,20 @@ public class CardResetIntegrationTest {
     @Autowired
     private AccountRepository accountRepository;
 
+    @Autowired
+    private Clock clock;
+
     private Board testBoard;
     private Card testCard;
     private Account testAccount;
 
     @BeforeEach
     void setUp() {
-        // Set current time to 2 hours after reset time for consistent testing
-        LocalTime resetTime = LocalTime.of(20, 0); // 8 PM
-        LocalDateTime now = LocalDateTime.of(LocalDate.now(), resetTime.plusHours(2)); // 10 PM
-
         // Create a test account
         testAccount = new Account();
-        testAccount.setEmail("test@example.com");
+        testAccount.setEmail("test_" + System.currentTimeMillis() + "@example.com");
         testAccount.setName("Test User");
-        testAccount.setPasswordHash("$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG"); // "password" hashed
+        testAccount.setPasswordHash("hashedPassword");
         testAccount = accountRepository.save(testAccount);
 
         // Create a test board
@@ -60,22 +60,22 @@ public class CardResetIntegrationTest {
         testBoard.setOwner(testAccount);
         testBoard = boardRepository.save(testBoard);
 
-        // Create a test card
+        // Create a test card with reset time before current time (23:15)
         testCard = new Card();
         testCard.setTitle("Test Card");
         testCard.setDetails("Test Details");
-        testCard.setPosition(0);
-        testCard.setState(CardState.GREEN);
         testCard.setBoard(testBoard);
-        testCard.setResetTime(resetTime);
+        testCard.setState(CardState.GREEN);
+        testCard.setResetTime(LocalTime.of(23, 0)); // 11:00 PM
+        testCard.setPosition(0);
         testCard = cardRepository.save(testCard);
 
-        // Create an audit entry from 4 hours ago (before reset time)
+        // Create an audit entry for the card
         CardAudit audit = new CardAudit();
         audit.setCard(testCard);
         audit.setPreviousState(CardState.RED);
         audit.setNewState(CardState.GREEN);
-        audit.setTimestamp(now.minusHours(4));
+        audit.setTimestamp(LocalDateTime.now(clock).minusHours(1));
         cardAuditRepository.save(audit);
     }
 
@@ -86,7 +86,7 @@ public class CardResetIntegrationTest {
         audit.setCard(testCard);
         audit.setPreviousState(CardState.RED);
         audit.setNewState(CardState.GREEN);
-        audit.setTimestamp(LocalDateTime.now().minusMinutes(30));
+        audit.setTimestamp(LocalDateTime.now(clock).minusMinutes(30));
         cardAuditRepository.save(audit);
 
         // Get the card
@@ -103,7 +103,7 @@ public class CardResetIntegrationTest {
     @Test
     void shouldResetCardState_WhenAccessedAfterResetTime() {
         // Set reset time to 30 minutes ago
-        testCard.setResetTime(LocalTime.now().minusMinutes(30));
+        testCard.setResetTime(LocalTime.now(clock).minusMinutes(30));
         cardRepository.save(testCard);
 
         // Create an audit entry for 1 hour ago (before reset time)
@@ -111,7 +111,7 @@ public class CardResetIntegrationTest {
         audit.setCard(testCard);
         audit.setPreviousState(CardState.RED);
         audit.setNewState(CardState.GREEN);
-        audit.setTimestamp(LocalDateTime.now().minusHours(1));
+        audit.setTimestamp(LocalDateTime.now(clock).minusHours(1));
         cardAuditRepository.save(audit);
 
         // Get the card
@@ -134,7 +134,7 @@ public class CardResetIntegrationTest {
         card2.setState(CardState.GREEN);
         card2.setPosition(1);
         card2.setBoard(testBoard);
-        card2.setResetTime(LocalTime.now().minusMinutes(30)); // Set reset time to 30 minutes ago
+        card2.setResetTime(LocalTime.now(clock).minusMinutes(30)); // Set reset time to 30 minutes ago
         card2 = cardRepository.save(card2);
 
         // Create audit entries for 1 hour ago
@@ -142,18 +142,18 @@ public class CardResetIntegrationTest {
         audit1.setCard(testCard);
         audit1.setPreviousState(CardState.RED);
         audit1.setNewState(CardState.GREEN);
-        audit1.setTimestamp(LocalDateTime.now().minusHours(1));
+        audit1.setTimestamp(LocalDateTime.now(clock).minusHours(1));
         cardAuditRepository.save(audit1);
 
         CardAudit audit2 = new CardAudit();
         audit2.setCard(card2);
         audit2.setPreviousState(CardState.RED);
         audit2.setNewState(CardState.GREEN);
-        audit2.setTimestamp(LocalDateTime.now().minusHours(1));
+        audit2.setTimestamp(LocalDateTime.now(clock).minusHours(1));
         cardAuditRepository.save(audit2);
 
         // Set testCard's reset time to 30 minutes ago
-        testCard.setResetTime(LocalTime.now().minusMinutes(30));
+        testCard.setResetTime(LocalTime.now(clock).minusMinutes(30));
         cardRepository.save(testCard);
 
         // Get all cards from the board
@@ -166,7 +166,7 @@ public class CardResetIntegrationTest {
         List<CardAudit> auditEntries = cardAuditRepository.findByCardInOrderByTimestampDesc(cards);
         assertEquals(5, auditEntries.size()); // Updated to 5 to account for initial audit entry from setUp
         assertTrue(auditEntries.stream()
-            .filter(audit -> audit.getTimestamp().isAfter(LocalDateTime.now().minusMinutes(1)))
+            .filter(audit -> audit.getTimestamp().isAfter(LocalDateTime.now(clock).minusMinutes(1)))
             .allMatch(audit -> audit.getNewState() == CardState.RED));
     }
 
@@ -177,7 +177,7 @@ public class CardResetIntegrationTest {
         card2.setTitle("Test Card 2");
         card2.setState(CardState.GREEN);
         card2.setBoard(testBoard);
-        card2.setResetTime(LocalTime.now().minusMinutes(30)); // Set reset time to 30 minutes ago
+        card2.setResetTime(LocalTime.now(clock).minusMinutes(30)); // Set reset time to 30 minutes ago
         card2.setPosition(1);
         card2 = cardRepository.save(card2);
 
@@ -185,7 +185,7 @@ public class CardResetIntegrationTest {
         card3.setTitle("Test Card 3");
         card3.setState(CardState.GREEN);
         card3.setBoard(testBoard);
-        card3.setResetTime(LocalTime.now().minusMinutes(30)); // Set reset time to 30 minutes ago
+        card3.setResetTime(LocalTime.now(clock).minusMinutes(30)); // Set reset time to 30 minutes ago
         card3.setPosition(2);
         card3 = cardRepository.save(card3);
 
@@ -194,25 +194,25 @@ public class CardResetIntegrationTest {
         audit1.setCard(testCard);
         audit1.setPreviousState(CardState.RED);
         audit1.setNewState(CardState.GREEN);
-        audit1.setTimestamp(LocalDateTime.now().minusHours(1));
+        audit1.setTimestamp(LocalDateTime.now(clock).minusHours(1));
         cardAuditRepository.save(audit1);
 
         CardAudit audit2 = new CardAudit();
         audit2.setCard(card2);
         audit2.setPreviousState(CardState.RED);
         audit2.setNewState(CardState.GREEN);
-        audit2.setTimestamp(LocalDateTime.now().minusHours(1));
+        audit2.setTimestamp(LocalDateTime.now(clock).minusHours(1));
         cardAuditRepository.save(audit2);
 
         CardAudit audit3 = new CardAudit();
         audit3.setCard(card3);
         audit3.setPreviousState(CardState.RED);
         audit3.setNewState(CardState.GREEN);
-        audit3.setTimestamp(LocalDateTime.now().minusHours(1));
+        audit3.setTimestamp(LocalDateTime.now(clock).minusHours(1));
         cardAuditRepository.save(audit3);
 
         // Set testCard's reset time to 30 minutes ago
-        testCard.setResetTime(LocalTime.now().minusMinutes(30));
+        testCard.setResetTime(LocalTime.now(clock).minusMinutes(30));
         cardRepository.save(testCard);
 
         // Get all cards from the board

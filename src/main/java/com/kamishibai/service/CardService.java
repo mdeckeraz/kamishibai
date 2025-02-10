@@ -10,6 +10,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -18,10 +20,12 @@ import java.util.List;
 public class CardService {
     private final CardRepository cardRepository;
     private final CardAuditRepository cardAuditRepository;
+    private final Clock clock;
 
-    public CardService(CardRepository cardRepository, CardAuditRepository cardAuditRepository) {
+    public CardService(CardRepository cardRepository, CardAuditRepository cardAuditRepository, Clock clock) {
         this.cardRepository = cardRepository;
         this.cardAuditRepository = cardAuditRepository;
+        this.clock = clock;
     }
 
     @Transactional
@@ -45,7 +49,7 @@ public class CardService {
             audit.setCard(card);
             audit.setPreviousState(card.getState());
             audit.setNewState(updatedCard.getState());
-            audit.setTimestamp(LocalDateTime.now());
+            audit.setTimestamp(LocalDateTime.now(clock));
             card.setState(updatedCard.getState());
             cardAuditRepository.save(audit);
         }
@@ -86,34 +90,39 @@ public class CardService {
             audit.setCard(card);
             audit.setPreviousState(previousState);
             audit.setNewState(CardState.RED);
-            audit.setTimestamp(LocalDateTime.now());
+            audit.setTimestamp(LocalDateTime.now(clock));
             cardAuditRepository.save(audit);
         }
     }
 
     private boolean shouldResetCard(Card card) {
+        // Only reset GREEN cards that have a reset time
         if (card.getState() != CardState.GREEN || card.getResetTime() == null) {
             return false;
         }
 
-        LocalDateTime lastStateChange = cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN)
+        // Get the last time this card was set to GREEN
+        LocalDateTime lastStateChange = cardAuditRepository
+                .findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN)
                 .map(CardAudit::getTimestamp)
                 .orElse(null);
 
+        // If we can't find when it was last set to GREEN, don't reset it
         if (lastStateChange == null) {
             return false;
         }
 
         LocalTime resetTime = card.getResetTime();
-        LocalTime currentTime = LocalDateTime.now().toLocalTime();
+        LocalTime currentTime = LocalTime.now(clock);
+        LocalDate currentDate = LocalDate.now(clock);
 
-        // If the current time is before the reset time, don't reset
+        // If the current time is before reset time, don't reset
         if (currentTime.isBefore(resetTime)) {
             return false;
         }
 
-        // If the last state change was today and after the reset time, don't reset
-        if (lastStateChange.toLocalDate().equals(LocalDateTime.now().toLocalDate()) &&
+        // If the last state change was today and after reset time, don't reset
+        if (lastStateChange.toLocalDate().equals(currentDate) &&
             lastStateChange.toLocalTime().isAfter(resetTime)) {
             return false;
         }
@@ -128,16 +137,17 @@ public class CardService {
 
     @Transactional
     public CardResponse toggleCardState(Card card) {
-        CardState newState = (card.getState() == CardState.RED) ? CardState.GREEN : CardState.RED;
+        CardState previousState = card.getState();
+        CardState newState = (previousState == CardState.RED) ? CardState.GREEN : CardState.RED;
+        
+        card.setState(newState);
+        card = cardRepository.save(card);
         
         CardAudit audit = new CardAudit();
         audit.setCard(card);
-        audit.setPreviousState(card.getState());
+        audit.setPreviousState(previousState);
         audit.setNewState(newState);
-        card.setState(newState);
-        
         cardAuditRepository.save(audit);
-        card = cardRepository.save(card);
 
         return new CardResponse(card.getId(), card.getState());
     }
@@ -151,7 +161,7 @@ public class CardService {
     @Scheduled(cron = "0 * * * * *") // Runs every minute
     @Transactional
     public void resetCards() {
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.now(clock);
         List<Card> cards = cardRepository.findByStateAndResetTimeLessThanEqual(CardState.GREEN, now);
         
         for (Card card : cards) {
@@ -159,6 +169,7 @@ public class CardService {
             audit.setCard(card);
             audit.setPreviousState(CardState.GREEN);
             audit.setNewState(CardState.RED);
+            audit.setTimestamp(LocalDateTime.now(clock));
             card.setState(CardState.RED);
             
             cardAuditRepository.save(audit);
