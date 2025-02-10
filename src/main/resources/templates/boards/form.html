@@ -20,7 +20,7 @@
                             <h5 class="card-title mb-0" th:text="${board.id != null ? 'Edit Board' : 'Create Board'}">Create New Board</h5>
                         </div>
                         <div class="card-body">
-                            <form th:action="@{${board.id != null ? '/boards/' + board.id : '/boards'}}"
+                            <form th:action="@{${board.id != null ? '/boards/' + board.id + '/update' : '/boards/create'}}"
                                   th:object="${board}"
                                   method="post"
                                   class="needs-validation"

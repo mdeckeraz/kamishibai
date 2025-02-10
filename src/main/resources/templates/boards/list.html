@@ -12,8 +12,10 @@
     <div layout:fragment="content">
         <div class="container mt-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>My Boards</h2>
-                <a th:href="@{/boards/create}" class="btn btn-primary">Create New Board</a>
+                <h2 class="mb-0">My Boards</h2>
+                <a th:href="@{/boards/create}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg"></i> Create Board
+                </a>
             </div>
 
             <div class="alert alert-info" th:if="${#lists.isEmpty(boards)}">

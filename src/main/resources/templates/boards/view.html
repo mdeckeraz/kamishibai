@@ -45,76 +45,6 @@
             text-align: center;
         }
     </style>
-    <script th:inline="javascript">
-        function toggleCard(button) {
-            const card = button.closest('.card');
-            const cardId = card.getAttribute('data-card-id');
-            const boardId = card.getAttribute('data-board-id');
-            const csrfToken = document.querySelector("meta[name='_csrf']").getAttribute("content");
-            const csrfHeader = document.querySelector("meta[name='_csrf_header']").getAttribute("content");
-
-            console.log('Toggling card:', cardId, 'on board:', boardId);
-
-            fetch(`/boards/${boardId}/cards/${cardId}/toggle`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    [csrfHeader]: csrfToken
-                },
-                credentials: 'same-origin'
-            })
-            .then(response => {
-                console.log('Response status:', response.status);
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Toggle response:', data);
-                // Get the target container based on new state
-                const targetContainer = data.state === 'GREEN' 
-                    ? document.querySelector('.card-header-green').closest('.card').querySelector('.card-list')
-                    : document.querySelector('.card-header-red').closest('.card').querySelector('.card-list');
-
-                // Update card appearance
-                card.classList.remove('card-red', 'card-green');
-                card.classList.add(`card-${data.state.toLowerCase()}`);
-
-                // Move card to new container
-                targetContainer.appendChild(card);
-
-                // Check if containers are empty
-                const containers = [
-                    document.querySelector('.card-header-red').closest('.card').querySelector('.card-list'),
-                    document.querySelector('.card-header-green').closest('.card').querySelector('.card-list')
-                ];
-
-                containers.forEach(container => {
-                    const cards = container.querySelectorAll('.card-red, .card-green');
-                    const emptyMessage = container.querySelector('.text-center.text-muted');
-                    
-                    if (cards.length === 0 && !emptyMessage) {
-                        const message = document.createElement('div');
-                        message.className = 'text-center text-muted py-4';
-                        message.innerHTML = `
-                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                            ${container.closest('.card').querySelector('.card-header').textContent.trim() === 'Problems' 
-                                ? 'No problem cards yet' 
-                                : 'No solution cards yet'}
-                        `;
-                        container.appendChild(message);
-                    } else if (cards.length > 0 && emptyMessage) {
-                        emptyMessage.remove();
-                    }
-                });
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to toggle card state');
-            });
-        }
-    </script>
 </head>
 <body>
     <div layout:fragment="content">
@@ -134,7 +64,7 @@
                        class="btn btn-outline-primary me-2">
                         <i class="bi bi-pencil"></i> Edit Board
                     </a>
-                    <a th:href="@{/boards/{id}/cards/create(id=${board.id})}" class="btn btn-primary">
+                    <a th:href="@{/boards/{id}/cards/new(id=${board.id})}" class="btn btn-primary">
                         <i class="bi bi-plus-lg"></i> Add Card
                     </a>
                 </div>
@@ -155,30 +85,6 @@
                         <h5 class="mb-0 text-white">Tasks Outstanding</h5>
                     </div>
                     <div class="card-body card-list">
-                        <div th:if="${#lists.isEmpty(redCards)}" class="text-center text-muted py-4">
-                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                            No problem cards yet
-                        </div>
-                        <div th:each="card : ${redCards}" 
-                             th:data-card-id="${card.id}"
-                             th:data-board-id="${board.id}"
-                             class="card card-red mb-3">
-                            <div class="card-body">
-                                <h6 class="card-title" th:text="${card.title}">Card Title</h6>
-                                <p class="card-text" th:text="${card.details}">Card Details</p>
-                                <div class="d-flex justify-content-end">
-                                    <div>
-                                        <button class="btn btn-outline-primary btn-sm btn-toggle me-2" onclick="toggleCard(this)">
-                                            <i class="bi bi-arrow-repeat"></i>
-                                        </button>
-                                        <a th:href="@{/boards/{boardId}/cards/{cardId}/edit(boardId=${board.id},cardId=${card.id})}" 
-                                           class="btn btn-outline-secondary btn-sm">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -190,38 +96,192 @@
                         <h5 class="mb-0 text-white">Completed</h5>
                     </div>
                     <div class="card-body card-list">
-                        <div th:if="${#lists.isEmpty(greenCards)}" class="text-center text-muted py-4">
-                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                            No solution cards yet
-                        </div>
-                        <div th:each="card : ${greenCards}" 
-                             th:data-card-id="${card.id}"
-                             th:data-board-id="${board.id}"
-                             class="card card-green mb-3">
-                            <div class="card-body">
-                                <h6 class="card-title" th:text="${card.title}">Card Title</h6>
-                                <p class="card-text" th:text="${card.details}">Card Details</p>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted">
-                                        <i class="bi bi-clock-history"></i>
-                                        Resets at: <span th:text="${#temporals.format(card.resetTime, 'h:mm a')}">Reset time</span>
-                                    </small>
-                                    <div>
-                                        <button class="btn btn-outline-primary btn-sm btn-toggle me-2" onclick="toggleCard(this)">
-                                            <i class="bi bi-arrow-repeat"></i>
-                                        </button>
-                                        <a th:href="@{/boards/{boardId}/cards/{cardId}/edit(boardId=${board.id},cardId=${card.id})}" 
-                                           class="btn btn-outline-secondary btn-sm">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    <th:block layout:fragment="scripts">
+        <script th:inline="javascript">
+            const csrfToken = document.querySelector("meta[name='_csrf']").getAttribute("content");
+            const csrfHeader = document.querySelector("meta[name='_csrf_header']").getAttribute("content");
+            const boardId = /*[[${board.id}]]*/ 0;
+
+            console.log('Board view initialized with boardId:', boardId);
+
+            // Function to create a card element
+            function createCardElement(card) {
+                console.log('Creating card element:', card);
+                const cardDiv = document.createElement('div');
+                cardDiv.className = `card mb-3 card-${card.state.toLowerCase()}`;
+                cardDiv.setAttribute('data-card-id', card.id);
+                cardDiv.setAttribute('data-board-id', boardId);
+
+                let resetTimeHtml = '';
+                if (card.state === 'GREEN' && card.resetTime) {
+                    resetTimeHtml = `
+                        <small class="text-muted">
+                            <i class="bi bi-clock-history"></i>
+                            Resets at: ${card.resetTime}
+                        </small>
+                    `;
+                }
+
+                cardDiv.innerHTML = `
+                    <div class="card-body">
+                        <h6 class="card-title">${card.title}</h6>
+                        <p class="card-text">${card.details || ''}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            ${resetTimeHtml}
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm btn-toggle me-2" onclick="toggleCard(this)">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                                <a href="/boards/${boardId}/cards/${card.id}/edit" 
+                                   class="btn btn-outline-secondary btn-sm">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                return cardDiv;
+            }
+
+            // Function to refresh cards
+            function refreshCards() {
+                console.log('Refreshing cards for board:', boardId);
+                
+                fetch(`/api/boards/${boardId}/cards`, {
+                    headers: {
+                        [csrfHeader]: csrfToken
+                    }
+                })
+                .then(response => {
+                    console.log('API response status:', response.status);
+                    return response.json();
+                })
+                .then(cards => {
+                    console.log('Received cards:', cards);
+                    
+                    const redContainer = document.querySelector('.card-header-red');
+                    const greenContainer = document.querySelector('.card-header-green');
+                    
+                    if (!redContainer || !greenContainer) {
+                        console.error('Could not find card containers:', {
+                            redContainer,
+                            greenContainer
+                        });
+                        return;
+                    }
+                    
+                    const redList = redContainer.closest('.card').querySelector('.card-list');
+                    const greenList = greenContainer.closest('.card').querySelector('.card-list');
+                    
+                    if (!redList || !greenList) {
+                        console.error('Could not find card lists:', {
+                            redList,
+                            greenList
+                        });
+                        return;
+                    }
+                    
+                    // Clear existing cards
+                    redList.innerHTML = '';
+                    greenList.innerHTML = '';
+                    
+                    // Sort cards by position
+                    cards.sort((a, b) => a.position - b.position);
+                    
+                    // Separate cards by state
+                    const redCards = cards.filter(card => card.state === 'RED');
+                    const greenCards = cards.filter(card => card.state === 'GREEN');
+                    
+                    console.log('Sorted cards:', {
+                        redCards,
+                        greenCards
+                    });
+                    
+                    // Update red cards container
+                    if (redCards.length === 0) {
+                        redList.innerHTML = `
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                                No problem cards yet
+                            </div>
+                        `;
+                    } else {
+                        redCards.forEach(card => {
+                            redList.appendChild(createCardElement(card));
+                        });
+                    }
+                    
+                    // Update green cards container
+                    if (greenCards.length === 0) {
+                        greenList.innerHTML = `
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                                No solution cards yet
+                            </div>
+                        `;
+                    } else {
+                        greenCards.forEach(card => {
+                            greenList.appendChild(createCardElement(card));
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error refreshing cards:', error);
+                });
+            }
+
+            // Set up auto-refresh every minute
+            const refreshInterval = setInterval(refreshCards, 60000);
+            console.log('Set up auto-refresh interval:', refreshInterval);
+
+            // Initial load of cards
+            refreshCards();
+
+            // Refresh cards when page becomes visible
+            document.addEventListener('visibilitychange', () => {
+                console.log('Visibility changed:', document.visibilityState);
+                if (document.visibilityState === 'visible') {
+                    refreshCards();
+                }
+            });
+
+            // Refresh cards when navigating back to the page
+            window.addEventListener('pageshow', (event) => {
+                console.log('Page show event:', event.persisted);
+                if (event.persisted) {
+                    refreshCards();
+                }
+            });
+
+            function toggleCard(button) {
+                const card = button.closest('.card');
+                const cardId = card.getAttribute('data-card-id');
+                console.log('Toggling card:', cardId);
+
+                fetch(`/api/boards/${boardId}/cards/${cardId}/toggle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        [csrfHeader]: csrfToken
+                    }
+                })
+                .then(response => {
+                    console.log('Toggle response:', response.status);
+                    if (response.ok) {
+                        refreshCards();
+                    } else {
+                        console.error('Failed to update card state');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        </script>
+    </th:block>
 </body>
 </html>

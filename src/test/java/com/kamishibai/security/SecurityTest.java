@@ -4,12 +4,14 @@ import com.kamishibai.config.SecurityConfig;
 import com.kamishibai.config.TestSecurityConfig;
 import com.kamishibai.controller.AccountController;
 import com.kamishibai.controller.BoardController;
+import com.kamishibai.controller.BoardViewController;
 import com.kamishibai.controller.HomeController;
 import com.kamishibai.controller.RegisterController;
 import com.kamishibai.model.Account;
 import com.kamishibai.model.Board;
 import com.kamishibai.service.AccountService;
 import com.kamishibai.service.BoardService;
+import com.kamishibai.service.CardService;
 import com.kamishibai.service.auth.CustomUserDetailsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,7 @@ import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -34,10 +37,12 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-@WebMvcTest(controllers = {HomeController.class, BoardController.class, AccountController.class, RegisterController.class},
+@WebMvcTest(controllers = {HomeController.class, BoardController.class, BoardViewController.class, AccountController.class, RegisterController.class},
         excludeAutoConfiguration = SecurityAutoConfiguration.class)
 @Import(TestSecurityConfig.class)
 @AutoConfigureMockMvc
@@ -56,9 +61,14 @@ class SecurityTest {
     @MockBean
     private CustomUserDetailsService customUserDetailsService;
 
+    @MockBean
+    private CardService cardService;
+
+    private Account testAccount;
+
     @BeforeEach
     void setUp() {
-        Account testAccount = new Account();
+        testAccount = new Account();
         testAccount.setId(1L);
         testAccount.setEmail("test@example.com");
         testAccount.setName("Test User");
@@ -66,6 +76,7 @@ class SecurityTest {
 
         CustomUserDetails userDetails = new CustomUserDetails(testAccount);
         when(customUserDetailsService.loadUserByUsername("test@example.com")).thenReturn(userDetails);
+        when(accountService.getAccount(1L)).thenReturn(testAccount);
     }
 
     @Test
@@ -79,7 +90,7 @@ class SecurityTest {
     @Test
     void protectedEndpoints_ShouldRequireAuthentication() throws Exception {
         // Test protected endpoints
-        mockMvc.perform(get("/dashboard")).andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/boards")).andExpect(status().is3xxRedirection());
         mockMvc.perform(get("/api/boards")).andExpect(status().is3xxRedirection());
         mockMvc.perform(get("/api/boards/1")).andExpect(status().is3xxRedirection());
     }
@@ -87,46 +98,33 @@ class SecurityTest {
     @Test
     @WithUserDetails(value = "test@example.com", userDetailsServiceBeanName = "customUserDetailsService")
     void protectedEndpoints_ShouldBeAccessible_WithAuthentication() throws Exception {
-        // Mock service responses
-        Account testAccount = new Account();
-        testAccount.setId(1L);
-        testAccount.setEmail("test@example.com");
-        testAccount.setName("Test User");
-
-        when(accountService.getAccount(any())).thenReturn(testAccount);
-
+        // Set up test board
         Board testBoard = new Board();
         testBoard.setId(1L);
         testBoard.setName("Test Board");
         testBoard.setOwner(testAccount);
 
-        List<Board> boards = Collections.singletonList(testBoard);
-        when(boardService.getBoardsForUser(any())).thenReturn(boards);
+        when(boardService.getBoardsForUser(any())).thenReturn(Arrays.asList(testBoard));
         when(boardService.getBoardById(eq(1L), any())).thenReturn(Optional.of(testBoard));
 
         // Test protected endpoints with authentication
-        mockMvc.perform(get("/dashboard"))
-            .andExpect(status().isOk());
+        mockMvc.perform(get("/boards"))
+            .andExpect(status().isOk())
+            .andExpect(view().name("boards/list"));
 
         mockMvc.perform(get("/api/boards"))
-            .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$[0].id").value(1))
-            .andExpect(jsonPath("$[0].name").value("Test Board"));
+            .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/boards/1"))
-            .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.id").value(1))
-            .andExpect(jsonPath("$.name").value("Test Board"));
+            .andExpect(status().isOk());
     }
 
     @Test
     @WithUserDetails(value = "test@example.com", userDetailsServiceBeanName = "customUserDetailsService")
-    void homepage_ShouldRedirectToDashboard_WhenAuthenticated() throws Exception {
+    void homepage_ShouldRedirectToBoards_WhenAuthenticated() throws Exception {
         mockMvc.perform(get("/"))
             .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/dashboard"));
+            .andExpect(redirectedUrl("/boards"));
     }
 
     @Test

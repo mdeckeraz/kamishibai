@@ -2,6 +2,7 @@ package com.kamishibai.controller;
 
 import com.kamishibai.dto.CardRequest;
 import com.kamishibai.dto.CardResponse;
+import com.kamishibai.dto.CardListResponse;
 import com.kamishibai.model.*;
 import com.kamishibai.repository.BoardRepository;
 import com.kamishibai.repository.CardRepository;
@@ -50,12 +51,38 @@ public class CardController {
         return board;
     }
 
+    @PostMapping("/{cardId}/toggle")
+    public ResponseEntity<?> toggleCardState(
+            @PathVariable Long boardId,
+            @PathVariable Long cardId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
+            Card card = cardRepository.findById(cardId)
+                    .orElseThrow(() -> new IllegalArgumentException("Card not found"));
+
+            if (!card.getBoard().getId().equals(boardId)) {
+                throw new IllegalStateException("Card does not belong to this board");
+            }
+
+            CardResponse response = cardService.toggleCardState(card);
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to toggle card state");
+        }
+    }
+
     @GetMapping
-    public ResponseEntity<List<Card>> getCards(@PathVariable Long boardId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<List<CardListResponse>> getCards(@PathVariable Long boardId, @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
             List<Card> cards = cardService.getCardsByBoardId(boardId);
-            return ResponseEntity.ok(cards);
+            List<CardListResponse> response = cards.stream()
+                .map(CardListResponse::new)
+                .toList();
+            return ResponseEntity.ok(response);
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -87,6 +114,16 @@ public class CardController {
             response.put("id", createdCard.getId());
             response.put("message", "Card created successfully");
             return ResponseEntity.ok(response);
+        } catch (IllegalStateException e) {
+            logger.error("Access denied while creating card for board {}: {}", boardId, e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid request while creating card for board {}: {}", boardId, e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         } catch (Exception e) {
             logger.error("Error creating card for board {}: {}", boardId, e.getMessage(), e);
             Map<String, Object> response = new HashMap<>();
@@ -131,40 +168,6 @@ public class CardController {
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Failed to update card: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
-
-    @PostMapping("/{cardId}/toggle")
-    public ResponseEntity<Map<String, Object>> toggleCardState(
-            @PathVariable Long boardId,
-            @PathVariable Long cardId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        try {
-            logger.info("Toggling card state for card {} in board {}", cardId, boardId);
-            
-            Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
-            Card card = cardRepository.findById(cardId)
-                    .orElseThrow(() -> new IllegalArgumentException("Card not found"));
-
-            if (!card.getBoard().getId().equals(boardId)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            CardResponse response = cardService.toggleCardState(card);
-            logger.info("Successfully toggled card state for card {} in board {}", cardId, boardId);
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("id", response.getId());
-            responseBody.put("state", response.getState());
-            return ResponseEntity.ok(responseBody);
-        } catch (IllegalStateException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
-        } catch (Exception e) {
-            logger.error("Error toggling card state for card {} in board {}: {}", cardId, boardId, e.getMessage(), e);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("message", "Failed to toggle card state: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 

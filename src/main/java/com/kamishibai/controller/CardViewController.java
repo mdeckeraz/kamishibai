@@ -72,15 +72,12 @@ public class CardViewController {
         }
     }
 
-    @GetMapping("/create")
+    @GetMapping("/new")
     public String createCardForm(@PathVariable Long boardId, Model model, @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
-            Card card = new Card();
-            card.setBoard(board);
-            card.setResetTime(LocalTime.MIDNIGHT);
-            model.addAttribute("card", card);
             model.addAttribute("boardId", boardId);
+            model.addAttribute("card", new Card()); // Add empty card for form binding
             model.addAttribute("board", board);
             return "cards/form";
         } catch (IllegalStateException e) {
@@ -88,7 +85,7 @@ public class CardViewController {
         }
     }
 
-    @PostMapping("/create")
+    @PostMapping
     public String createCard(
             @PathVariable Long boardId,
             @Valid @ModelAttribute("card") Card card,
@@ -133,40 +130,46 @@ public class CardViewController {
     }
 
     @PostMapping("/create-json")
-    public String createCardJson(
+    @ResponseBody
+    public ResponseEntity<?> createCardJson(
             @PathVariable Long boardId,
-            @Valid @ModelAttribute("card") CardRequest request,
+            @Valid @RequestBody CardRequest request,
             BindingResult bindingResult,
-            Model model,
-            RedirectAttributes redirectAttributes,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         
         try {
-            Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
-            
             if (bindingResult.hasErrors()) {
-                model.addAttribute("boardId", boardId);
-                model.addAttribute("board", board);
-                return "cards/form";
+                Map<String, String> errors = new HashMap<>();
+                bindingResult.getFieldErrors().forEach(error -> 
+                    errors.put(error.getField(), error.getDefaultMessage())
+                );
+                return ResponseEntity.badRequest().body(errors);
             }
+
+            Board board = getBoardAndCheckAccess(boardId, userDetails.getAccount());
             
             Card card = new Card();
             card.setTitle(request.getTitle());
             card.setDetails(request.getDetails());
-            card.setState(CardState.RED); // Always start with RED
+            card.setState(request.getState() != null ? request.getState() : CardState.RED);
             card.setResetTime(request.getResetTime() != null ? request.getResetTime() : LocalTime.MIDNIGHT);
             card.setBoard(board);
             card.setPosition(request.getPosition() != null ? request.getPosition() : 0);
             
-            cardService.createCard(card);
-            redirectAttributes.addFlashAttribute("message", "Card created successfully!");
+            Card savedCard = cardService.createCard(card);
             
-            return "redirect:/boards/" + boardId;
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", savedCard.getId());
+            response.put("message", "Card created successfully!");
+            response.put("redirect", "/boards/" + boardId);
+            
+            return ResponseEntity.ok(response);
         } catch (IllegalStateException e) {
-            return "error/403";
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", "Access denied"));
         } catch (Exception e) {
-            model.addAttribute("error", "Failed to create card: " + e.getMessage());
-            return "cards/form";
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to create card: " + e.getMessage()));
         }
     }
 

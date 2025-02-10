@@ -7,11 +7,17 @@ import com.kamishibai.repository.CardRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -30,7 +36,6 @@ class CardServiceTest {
     @Mock
     private CardAuditRepository cardAuditRepository;
 
-    @InjectMocks
     private CardService cardService;
 
     private Card testCard;
@@ -39,6 +44,10 @@ class CardServiceTest {
 
     @BeforeEach
     void setUp() {
+        cardRepository = mock(CardRepository.class);
+        cardAuditRepository = mock(CardAuditRepository.class);
+        cardService = new CardService(cardRepository, cardAuditRepository);
+
         testAccount = new Account();
         testAccount.setId(1L);
         testAccount.setEmail("test@example.com");
@@ -55,19 +64,119 @@ class CardServiceTest {
         testCard.setTitle("Test Card");
         testCard.setDetails("Test Details");
         testCard.setPosition(0);
-        testCard.setState(CardState.RED);
+        testCard.setState(CardState.GREEN);
         testCard.setBoard(testBoard);
-        testCard.setResetTime(LocalTime.of(9, 0));
+    }
+
+    @Test
+    void createCard_ShouldSetDefaultStateToRed() {
+        // Given
+        Card card = new Card();
+        card.setTitle("Test Card");
+        when(cardRepository.save(any(Card.class))).thenReturn(card);
+
+        // When
+        Card createdCard = cardService.createCard(card);
+
+        // Then
+        assertEquals(CardState.RED, createdCard.getState());
+        verify(cardRepository).save(card);
+    }
+
+    @Test
+    void updateCard_ShouldCreateAuditLogWhenStateChanges() {
+        // Given
+        Card existingCard = new Card();
+        existingCard.setId(1L);
+        existingCard.setState(CardState.RED);
+
+        Card updatedCard = new Card();
+        updatedCard.setState(CardState.GREEN);
+
+        when(cardRepository.findById(1L)).thenReturn(Optional.of(existingCard));
+        when(cardRepository.save(any(Card.class))).thenReturn(existingCard);
+        when(cardAuditRepository.save(any(CardAudit.class))).thenReturn(new CardAudit());
+
+        // When
+        cardService.updateCard(1L, updatedCard);
+
+        // Then
+        verify(cardAuditRepository).save(any(CardAudit.class));
+        verify(cardRepository).save(existingCard);
+        assertEquals(CardState.GREEN, existingCard.getState());
+    }
+
+    @Test
+    void checkAndResetCardState_ShouldResetGreenCardAfterResetTime() {
+        // Given
+        Card card = new Card();
+        card.setId(1L);
+        card.setState(CardState.GREEN);
+        card.setResetTime(LocalTime.of(10, 0)); // 10:00 AM
+
+        CardAudit lastAudit = new CardAudit();
+        lastAudit.setTimestamp(LocalDateTime.of(2025, 2, 9, 9, 0)); // 9:00 AM today
+
+        when(cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN))
+            .thenReturn(Optional.of(lastAudit));
+
+        // When
+        cardService.checkAndResetCardState(card);
+
+        // Then
+        verify(cardRepository).save(card);
+        verify(cardAuditRepository).save(any(CardAudit.class));
+        assertEquals(CardState.RED, card.getState());
+    }
+
+    @Test
+    void checkAndResetCardState_ShouldNotResetRedCard() {
+        // Given
+        Card card = new Card();
+        card.setId(1L);
+        card.setState(CardState.RED);
+        card.setResetTime(LocalTime.of(10, 0));
+
+        // When
+        cardService.checkAndResetCardState(card);
+
+        // Then
+        verify(cardRepository, never()).save(any());
+        verify(cardAuditRepository, never()).save(any());
+        assertEquals(CardState.RED, card.getState());
+    }
+
+    @Test
+    void checkAndResetCardState_ShouldNotResetGreenCardBeforeResetTime() {
+        // Given
+        Card card = new Card();
+        card.setId(1L);
+        card.setState(CardState.GREEN);
+        card.setResetTime(LocalTime.of(23, 30)); // 11:30 PM
+
+        CardAudit lastAudit = new CardAudit();
+        lastAudit.setTimestamp(LocalDateTime.of(2025, 2, 9, 23, 12)); // 11:12 PM today
+
+        when(cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN))
+            .thenReturn(Optional.of(lastAudit));
+
+        // When
+        cardService.checkAndResetCardState(card);
+
+        // Then
+        verify(cardRepository, never()).save(any());
+        verify(cardAuditRepository, never()).save(any());
+        assertEquals(CardState.GREEN, card.getState());
     }
 
     @Test
     void createCard_Success() {
         when(cardRepository.save(any(Card.class))).thenReturn(testCard);
-
+        
         Card createdCard = cardService.createCard(testCard);
 
         assertNotNull(createdCard);
-        assertEquals(CardState.RED, createdCard.getState());
+        assertEquals(CardState.RED, createdCard.getState()); // New cards should start as RED
         verify(cardRepository).save(any(Card.class));
     }
 
@@ -96,7 +205,7 @@ class CardServiceTest {
         CardResponse response = cardService.toggleCardState(testCard);
 
         assertNotNull(response);
-        assertEquals(CardState.GREEN, response.getState());
+        assertEquals(CardState.RED, response.getState());
         verify(cardRepository).save(testCard);
         verify(cardAuditRepository).save(any(CardAudit.class));
     }
@@ -115,21 +224,14 @@ class CardServiceTest {
 
     @Test
     void getCardAuditLog_Success() {
-        CardAudit audit = new CardAudit();
-        audit.setCard(testCard);
-        audit.setPreviousState(CardState.RED);
-        audit.setNewState(CardState.GREEN);
-
-        List<CardAudit> auditLog = Arrays.asList(audit);
-        when(cardAuditRepository.findByCardIdOrderByChangedAtDesc(testCard.getId())).thenReturn(auditLog);
+        List<CardAudit> auditLog = Arrays.asList(new CardAudit(), new CardAudit());
+        when(cardAuditRepository.findByCardOrderByTimestampDesc(testCard)).thenReturn(auditLog);
 
         List<CardAudit> result = cardService.getCardAuditLog(testCard);
 
         assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals(CardState.RED, result.get(0).getPreviousState());
-        assertEquals(CardState.GREEN, result.get(0).getNewState());
-        verify(cardAuditRepository).findByCardIdOrderByChangedAtDesc(testCard.getId());
+        assertEquals(auditLog.size(), result.size());
+        verify(cardAuditRepository).findByCardOrderByTimestampDesc(testCard);
     }
 
     @Test
@@ -146,5 +248,123 @@ class CardServiceTest {
         verify(cardRepository).findByStateAndResetTimeLessThanEqual(eq(CardState.GREEN), any(LocalTime.class));
         verify(cardRepository).save(testCard);
         verify(cardAuditRepository).save(any(CardAudit.class));
+    }
+
+    @Test
+    void shouldNotResetCard_WhenStateIsRed() {
+        testCard.setState(CardState.RED);
+        
+        cardService.checkAndResetCardState(testCard);
+        
+        verify(cardRepository, never()).save(any());
+        verify(cardAuditRepository, never()).save(any());
+        assertEquals(CardState.RED, testCard.getState());
+    }
+
+    @Test
+    void shouldNotResetCard_WhenResetTimeIsNull() {
+        testCard.setResetTime(null);
+        
+        cardService.checkAndResetCardState(testCard);
+        
+        verify(cardRepository, never()).save(any());
+        verify(cardAuditRepository, never()).save(any());
+        assertEquals(CardState.GREEN, testCard.getState());
+    }
+
+    @Test
+    void shouldNotResetCard_BeforeResetTime() {
+        // Given
+        Card card = new Card();
+        card.setId(1L);
+        card.setState(CardState.GREEN);
+        card.setResetTime(LocalTime.of(23, 30)); // 11:30 PM
+
+        CardAudit lastAudit = new CardAudit();
+        lastAudit.setTimestamp(LocalDateTime.of(2025, 2, 9, 23, 12)); // 11:12 PM today
+
+        when(cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN))
+            .thenReturn(Optional.of(lastAudit));
+
+        // When
+        cardService.checkAndResetCardState(card);
+
+        // Then
+        verify(cardRepository, never()).save(any());
+        verify(cardAuditRepository, never()).save(any());
+        assertEquals(CardState.GREEN, card.getState());
+    }
+
+    @Test
+    void shouldResetCard_AfterResetTime() {
+        // Given
+        Card card = new Card();
+        card.setId(1L);
+        card.setState(CardState.GREEN);
+        card.setResetTime(LocalTime.of(23, 0)); // 11:00 PM
+
+        CardAudit lastAudit = new CardAudit();
+        lastAudit.setTimestamp(LocalDateTime.of(2025, 2, 9, 22, 0)); // 10:00 PM today
+
+        when(cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN))
+            .thenReturn(Optional.of(lastAudit));
+
+        // When
+        cardService.checkAndResetCardState(card);
+
+        // Then
+        verify(cardRepository).save(card);
+        verify(cardAuditRepository).save(any(CardAudit.class));
+        assertEquals(CardState.RED, card.getState());
+    }
+
+    @Test
+    void shouldResetAllCards_WhenGettingCardsByBoard() {
+        // Set up a card that needs resetting
+        Card cardToReset = new Card();
+        cardToReset.setId(2L);
+        cardToReset.setState(CardState.GREEN);
+        cardToReset.setResetTime(LocalTime.of(10, 0)); // 10:00 AM
+        
+        // Last change was at 9:00 AM (before reset time)
+        LocalDateTime lastChange = LocalDateTime.of(2025, 2, 9, 9, 0); // 9:00 AM
+        CardAudit testAudit = new CardAudit();
+        testAudit.setCard(cardToReset);
+        testAudit.setPreviousState(CardState.RED);
+        testAudit.setNewState(CardState.GREEN);
+        testAudit.setTimestamp(lastChange);
+        
+        when(cardRepository.findByBoardIdOrderByPosition(1L))
+            .thenReturn(Arrays.asList(cardToReset));
+        when(cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(cardToReset, CardState.GREEN))
+            .thenReturn(Optional.of(testAudit));
+        
+        List<Card> cards = cardService.getCardsByBoardId(1L);
+        
+        verify(cardRepository).save(cardToReset);
+        assertEquals(CardState.RED, cardToReset.getState());
+    }
+
+    @Test
+    void shouldCreateAuditEntry_WhenResettingCard() {
+        // Given
+        Card card = new Card();
+        card.setId(1L);
+        card.setState(CardState.GREEN);
+        card.setResetTime(LocalTime.of(10, 0)); // 10:00 AM
+
+        CardAudit lastAudit = new CardAudit();
+        lastAudit.setTimestamp(LocalDateTime.of(2025, 2, 9, 9, 0)); // 9:00 AM today
+
+        when(cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN))
+            .thenReturn(Optional.of(lastAudit));
+
+        // When
+        cardService.checkAndResetCardState(card);
+
+        // Then
+        verify(cardRepository).save(card);
+        verify(cardAuditRepository).save(any(CardAudit.class));
+        assertEquals(CardState.RED, card.getState());
     }
 }

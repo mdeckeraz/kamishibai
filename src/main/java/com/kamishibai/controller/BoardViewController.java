@@ -62,15 +62,18 @@ public class BoardViewController {
         return "boards/view";
     }
 
-    @GetMapping("/form")
+    @GetMapping("/create")
     public String createBoardForm(Model model) {
         model.addAttribute("board", new Board());
         return "boards/form";
     }
 
-    @PostMapping
-    public String createBoard(@ModelAttribute Board board, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    @PostMapping("/create")
+    public String createBoard(@ModelAttribute BoardRequest boardRequest, @AuthenticationPrincipal CustomUserDetails userDetails) {
         Account account = accountService.getAccount(userDetails.getId());
+        Board board = new Board();
+        board.setName(boardRequest.getName());
+        board.setDescription(boardRequest.getDescription());
         boardService.createBoard(board, account);
         return "redirect:/boards";
     }
@@ -90,21 +93,17 @@ public class BoardViewController {
         return "boards/form";
     }
 
-    @PostMapping("/{id}")
-    public String updateBoard(@PathVariable Long id, @ModelAttribute Board updatedBoard, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    @PostMapping("/{id}/update")
+    public String updateBoard(@PathVariable Long id, @ModelAttribute BoardRequest boardRequest, @AuthenticationPrincipal CustomUserDetails userDetails) {
         Account account = accountService.getAccount(userDetails.getId());
-        Board existingBoard = boardService.getBoardById(id, account)
-                .orElseThrow(() -> new IllegalArgumentException("Board not found"));
-
-        // Check if user is the owner
-        if (!existingBoard.getOwner().equals(account)) {
-            return "error/403";
-        }
-
-        BoardRequest request = new BoardRequest();
-        request.setName(updatedBoard.getName());
-        request.setDescription(updatedBoard.getDescription());
-        boardService.updateBoard(id, request, account);
+        boardService.updateBoard(id, boardRequest, account);
         return "redirect:/boards";
+    }
+
+    @GetMapping("/{boardId}/cards/create")
+    public String createCardForm(@PathVariable Long boardId, Model model) {
+        model.addAttribute("boardId", boardId);
+        model.addAttribute("card", new Card()); // Add empty card for form binding
+        return "cards/form";
     }
 }

@@ -3,12 +3,14 @@ package com.kamishibai.service;
 import com.kamishibai.dto.BoardRequest;
 import com.kamishibai.model.Account;
 import com.kamishibai.model.Board;
+import com.kamishibai.model.Card;
 import com.kamishibai.repository.BoardRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -101,6 +103,12 @@ public class BoardService {
         Board sharedBoard = boardRepository.save(board);
         logger.info("Shared board: {}", sharedBoard);
         return sharedBoard;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Card> getCardsForBoard(Board board) {
+        logger.info("Getting cards for board ID: {}", board.getId());
+        return new ArrayList<>(board.getCards());
     }
 
     private boolean hasAccess(Board board, Account account) {

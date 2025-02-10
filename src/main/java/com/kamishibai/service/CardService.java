@@ -45,11 +45,85 @@ public class CardService {
             audit.setCard(card);
             audit.setPreviousState(card.getState());
             audit.setNewState(updatedCard.getState());
+            audit.setTimestamp(LocalDateTime.now());
             card.setState(updatedCard.getState());
             cardAuditRepository.save(audit);
         }
 
         return cardRepository.save(card);
+    }
+
+    @Transactional(readOnly = true)
+    public Card getCard(Long id) {
+        Card card = cardRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Card not found"));
+        checkAndResetCardState(card);
+        return card;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Card> getAllCards() {
+        List<Card> cards = cardRepository.findAll();
+        cards.forEach(this::checkAndResetCardState);
+        return cards;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Card> getCardsByBoardId(Long boardId) {
+        List<Card> cards = cardRepository.findByBoardIdOrderByPosition(boardId);
+        cards.forEach(this::checkAndResetCardState);
+        return cards;
+    }
+
+    @Transactional
+    public void checkAndResetCardState(Card card) {
+        if (shouldResetCard(card)) {
+            CardState previousState = card.getState();
+            card.setState(CardState.RED);
+            cardRepository.save(card);
+
+            CardAudit audit = new CardAudit();
+            audit.setCard(card);
+            audit.setPreviousState(previousState);
+            audit.setNewState(CardState.RED);
+            audit.setTimestamp(LocalDateTime.now());
+            cardAuditRepository.save(audit);
+        }
+    }
+
+    private boolean shouldResetCard(Card card) {
+        if (card.getState() != CardState.GREEN || card.getResetTime() == null) {
+            return false;
+        }
+
+        LocalDateTime lastStateChange = cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN)
+                .map(CardAudit::getTimestamp)
+                .orElse(null);
+
+        if (lastStateChange == null) {
+            return false;
+        }
+
+        LocalTime resetTime = card.getResetTime();
+        LocalTime currentTime = LocalDateTime.now().toLocalTime();
+
+        // If the current time is before the reset time, don't reset
+        if (currentTime.isBefore(resetTime)) {
+            return false;
+        }
+
+        // If the last state change was today and after the reset time, don't reset
+        if (lastStateChange.toLocalDate().equals(LocalDateTime.now().toLocalDate()) &&
+            lastStateChange.toLocalTime().isAfter(resetTime)) {
+            return false;
+        }
+
+        // If we get here, it means:
+        // 1. Current time is after reset time
+        // 2. Either:
+        //    a. Last state change was yesterday or earlier, or
+        //    b. Last state change was today but before reset time
+        return true;
     }
 
     @Transactional
@@ -69,13 +143,8 @@ public class CardService {
     }
 
     @Transactional(readOnly = true)
-    public List<Card> getCardsByBoardId(Long boardId) {
-        return cardRepository.findByBoardIdOrderByPosition(boardId);
-    }
-
-    @Transactional(readOnly = true)
     public List<CardAudit> getCardAuditLog(Card card) {
-        return cardAuditRepository.findByCardIdOrderByChangedAtDesc(card.getId());
+        return cardAuditRepository.findByCardOrderByTimestampDesc(card);
     }
 
     // Scheduled task to reset cards to red state at their reset time

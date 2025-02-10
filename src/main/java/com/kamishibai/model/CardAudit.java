@@ -22,12 +22,14 @@ public class CardAudit {
     @Column(nullable = false)
     private CardState newState;
 
-    @Column(name = "changed_at", nullable = false)
-    private LocalDateTime changedAt;
+    @Column(name = "timestamp", nullable = false)
+    private LocalDateTime timestamp;
 
     @PrePersist
     protected void onCreate() {
-        changedAt = LocalDateTime.now();
+        if (timestamp == null) {
+            timestamp = LocalDateTime.now();
+        }
     }
 
     // Getters and Setters
@@ -63,7 +65,11 @@ public class CardAudit {
         this.newState = newState;
     }
 
-    public LocalDateTime getChangedAt() {
-        return changedAt;
+    public LocalDateTime getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
     }
 }
