@@ -103,11 +103,16 @@
     </div>
     <th:block layout:fragment="scripts">
         <script th:inline="javascript">
+            const boardId = /*[[${board.id}]]*/ null;
             const csrfToken = document.querySelector("meta[name='_csrf']").getAttribute("content");
             const csrfHeader = document.querySelector("meta[name='_csrf_header']").getAttribute("content");
-            const boardId = /*[[${board.id}]]*/ 0;
 
-            console.log('Board view initialized with boardId:', boardId);
+            // Function to format time as HH:MM
+            function formatTime(time) {
+                if (!time) return '';
+                const [hours, minutes] = time.toString().split(',');
+                return `${hours.padStart(2, '0')}:${minutes || '00'}`;
+            }
 
             // Function to create a card element
             function createCardElement(card) {
@@ -119,10 +124,11 @@
 
                 let resetTimeHtml = '';
                 if (card.state === 'GREEN' && card.resetTime) {
+                    const formattedTime = formatTime(card.resetTime);
                     resetTimeHtml = `
                         <small class="text-muted">
                             <i class="bi bi-clock-history"></i>
-                            Resets at: ${card.resetTime}
+                            Resets at: ${formattedTime}
                         </small>
                     `;
                 }
