@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -301,10 +302,13 @@ class CardServiceTest {
         Card card = new Card();
         card.setId(1L);
         card.setState(CardState.GREEN);
-        card.setResetTime(LocalTime.of(23, 0)); // 11:00 PM
+        card.setResetTime(LocalTime.of(10, 0)); // 10:00 AM
 
+        // Set up last state change to be yesterday at 11:00 AM
+        LocalDateTime lastStateChange = LocalDateTime.now().minusDays(1).withHour(11).withMinute(0);
         CardAudit lastAudit = new CardAudit();
-        lastAudit.setTimestamp(LocalDateTime.of(2025, 2, 9, 22, 0)); // 10:00 PM today
+        lastAudit.setTimestamp(lastStateChange);
+        lastAudit.setNewState(CardState.GREEN);
 
         when(cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN))
             .thenReturn(Optional.of(lastAudit));
