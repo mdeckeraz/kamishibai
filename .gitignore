@@ -79,3 +79,6 @@ setup-env.sh
 data/
 logs/
 *.log.*
+
+# windsurf rules
+.windsurfrules

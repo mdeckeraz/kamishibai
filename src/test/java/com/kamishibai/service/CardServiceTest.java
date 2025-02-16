@@ -9,7 +9,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.*;
+import java.time.Clock;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -298,12 +304,12 @@ public class CardServiceTest {
         Card card = new Card();
         card.setId(1L);
         card.setState(CardState.GREEN);
-        card.setResetTime(LocalTime.of(23, 0)); // 11:00 PM
+        card.setResetTime(LocalTime.of(10, 0)); // 10:00 AM
 
+        // Set up last state change to be yesterday at 11:00 AM
+        LocalDateTime lastStateChange = LocalDateTime.now().minusDays(1).withHour(11).withMinute(0);
         CardAudit lastAudit = new CardAudit();
-        lastAudit.setCard(card);
-        lastAudit.setTimestamp(LocalDateTime.of(2025, 2, 9, 22, 0)); // 10:00 PM today
-        lastAudit.setPreviousState(CardState.RED);
+        lastAudit.setTimestamp(lastStateChange);
         lastAudit.setNewState(CardState.GREEN);
 
         // Current time is 23:15, which is after the reset time of 23:00
