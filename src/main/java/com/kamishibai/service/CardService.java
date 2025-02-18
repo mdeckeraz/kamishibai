@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -18,10 +19,16 @@ import java.util.List;
 public class CardService {
     private final CardRepository cardRepository;
     private final CardAuditRepository cardAuditRepository;
+    private final Clock clock;
 
-    public CardService(CardRepository cardRepository, CardAuditRepository cardAuditRepository) {
+    public CardService(CardRepository cardRepository, CardAuditRepository cardAuditRepository, Clock clock) {
         this.cardRepository = cardRepository;
         this.cardAuditRepository = cardAuditRepository;
+        this.clock = clock;
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     @Transactional
@@ -45,7 +52,7 @@ public class CardService {
             audit.setCard(card);
             audit.setPreviousState(card.getState());
             audit.setNewState(updatedCard.getState());
-            audit.setTimestamp(LocalDateTime.now());
+            audit.setTimestamp(now());
             card.setState(updatedCard.getState());
             cardAuditRepository.save(audit);
         }
@@ -86,7 +93,7 @@ public class CardService {
             audit.setCard(card);
             audit.setPreviousState(previousState);
             audit.setNewState(CardState.RED);
-            audit.setTimestamp(LocalDateTime.now());
+            audit.setTimestamp(now());
             cardAuditRepository.save(audit);
         }
     }
@@ -105,7 +112,7 @@ public class CardService {
         }
 
         LocalTime resetTime = card.getResetTime();
-        LocalTime currentTime = LocalDateTime.now().toLocalTime();
+        LocalTime currentTime = now().toLocalTime();
 
         // If the current time is before the reset time, don't reset
         if (currentTime.isBefore(resetTime)) {
@@ -113,16 +120,11 @@ public class CardService {
         }
 
         // If the last state change was today and after the reset time, don't reset
-        if (lastStateChange.toLocalDate().equals(LocalDateTime.now().toLocalDate()) &&
+        if (lastStateChange.toLocalDate().equals(now().toLocalDate()) &&
             lastStateChange.toLocalTime().isAfter(resetTime)) {
             return false;
         }
 
-        // If we get here, it means:
-        // 1. Current time is after reset time
-        // 2. Either:
-        //    a. Last state change was yesterday or earlier, or
-        //    b. Last state change was today but before reset time
         return true;
     }
 
@@ -134,6 +136,7 @@ public class CardService {
         audit.setCard(card);
         audit.setPreviousState(card.getState());
         audit.setNewState(newState);
+        audit.setTimestamp(now());
         card.setState(newState);
         
         cardAuditRepository.save(audit);
@@ -147,11 +150,10 @@ public class CardService {
         return cardAuditRepository.findByCardOrderByTimestampDesc(card);
     }
 
-    // Scheduled task to reset cards to red state at their reset time
     @Scheduled(cron = "0 * * * * *") // Runs every minute
     @Transactional
     public void resetCards() {
-        LocalTime now = LocalTime.now();
+        LocalTime now = now().toLocalTime();
         List<Card> cards = cardRepository.findByStateAndResetTimeLessThanEqual(CardState.GREEN, now);
         
         for (Card card : cards) {
@@ -159,6 +161,7 @@ public class CardService {
             audit.setCard(card);
             audit.setPreviousState(CardState.GREEN);
             audit.setNewState(CardState.RED);
+            audit.setTimestamp(now());
             card.setState(CardState.RED);
             
             cardAuditRepository.save(audit);
