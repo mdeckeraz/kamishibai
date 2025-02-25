@@ -16,6 +16,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CardService {
@@ -94,7 +95,7 @@ public class CardService {
     public List<Card> getCardsByBoardId(Long boardId) {
         logger.debug("Getting cards for board {}", boardId);
         List<Card> cards = cardRepository.findByBoardIdOrderByPosition(boardId);
-        // Don't check for resets here, let the scheduled task handle it
+        cards.forEach(this::checkAndResetCardState);
         return cards;
     }
 
@@ -116,45 +117,33 @@ public class CardService {
     }
 
     private boolean shouldResetCard(Card card) {
+        // If the card is not in GREEN state or has no reset time, no need to reset
         if (card.getState() != CardState.GREEN || card.getResetTime() == null) {
-            logger.debug("Card {} not eligible for reset: state={}, resetTime={}", 
-                card.getId(), card.getState(), card.getResetTime());
             return false;
         }
 
-        LocalDateTime lastStateChange = cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN)
-                .map(CardAudit::getTimestamp)
-                .orElse(null);
-
-        if (lastStateChange == null) {
-            logger.debug("Card {} has no last state change to GREEN", card.getId());
+        // Get the current time
+        LocalTime currentTime = LocalTime.now(clock);
+        
+        // Get the last time the card was set to GREEN
+        Optional<CardAudit> lastGreenAudit = cardAuditRepository.findTopByCardAndNewStateOrderByTimestampDesc(card, CardState.GREEN);
+        
+        if (lastGreenAudit.isEmpty()) {
+            // If we have no audit record of when it was set to GREEN, don't reset
             return false;
         }
 
+        LocalDateTime lastGreenTime = lastGreenAudit.get().getTimestamp();
         LocalTime resetTime = card.getResetTime();
-        LocalTime currentTime = now().toLocalTime();
 
-        logger.debug("Card {} checking reset: currentTime={}, resetTime={}, lastStateChange={}", 
-            card.getId(), currentTime, resetTime, lastStateChange);
-
-        // If the current time is before the reset time, don't reset
-        if (currentTime.isBefore(resetTime)) {
-            logger.debug("Card {} not resetting: current time {} is before reset time {}", 
-                card.getId(), currentTime, resetTime);
+        // If the reset time is after the current time, we haven't reached reset time yet
+        if (resetTime.isAfter(currentTime)) {
             return false;
         }
 
-        // If the last state change was today and after the reset time, don't reset
-        if (lastStateChange.toLocalDate().equals(now().toLocalDate()) &&
-            lastStateChange.toLocalTime().isAfter(resetTime)) {
-            logger.debug("Card {} not resetting: last state change {} was today after reset time {}", 
-                card.getId(), lastStateChange, resetTime);
-            return false;
-        }
-
-        logger.info("Card {} will be reset: currentTime={}, resetTime={}, lastStateChange={}", 
-            card.getId(), currentTime, resetTime, lastStateChange);
-        return true;
+        // If the last green time was before today's reset time, we should reset
+        LocalDateTime todayResetTime = LocalDateTime.now(clock).with(resetTime);
+        return lastGreenTime.isBefore(todayResetTime);
     }
 
     @Transactional
