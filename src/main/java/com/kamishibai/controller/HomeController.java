@@ -18,6 +18,11 @@ public class HomeController {
         return "index";
     }
 
+    @GetMapping("/dashboard")
+    public String dashboard() {
+        return "redirect:/boards";
+    }
+
     @GetMapping("/login")
     public String login(Authentication authentication) {
         if (authentication != null && authentication.isAuthenticated()) {
