@@ -37,7 +37,7 @@ out/
 .vscode/
 
 ### Application Properties ###
-src/main/resources/application-*.properties
+### src/main/resources/application-*.properties
 !src/main/resources/application-*.example.properties
 
 ### Compiled files ###
@@ -55,7 +55,7 @@ src/main/resources/application-*.properties
 ### App Engine ###
 src/main/appengine/*.jar
 src/main/appengine/*.war
-src/main/appengine/app.yaml
+### src/main/appengine/app.yaml
 !src/main/appengine/app.example.yaml
 
 ### Sensitive Files ###

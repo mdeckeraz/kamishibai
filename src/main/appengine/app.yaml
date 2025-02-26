@@ -1,0 +1,38 @@
+runtime: java17
+instance_class: F2
+
+env_variables:
+  SPRING_PROFILES_ACTIVE: "prod"
+  DB_USER: "kamishibai_testing_app"
+  DB_PASS: "S9`E5q?R:].dZu^L"
+  ADMIN_USERNAME: "admin"
+  ADMIN_PASSWORD: "admin123"
+  SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+  SPRING_FLYWAY_LOCATIONS: "classpath:db/migration"
+ 
+  # Reduce Spring Boot logging
+  LOGGING_LEVEL_ROOT: ERROR
+  LOGGING_LEVEL_ORG_SPRINGFRAMEWORK: ERROR
+  LOGGING_LEVEL_COM_KAMISHIBAI: WARN
+  
+  # Disable Hibernate SQL logging
+  LOGGING_LEVEL_ORG_HIBERNATE_SQL: ERROR
+  LOGGING_LEVEL_ORG_HIBERNATE_TYPE_DESCRIPTOR_SQL: ERROR
+  
+  # Disable detailed web request logging
+  LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB: ERROR
+  
+  # Disable Thymeleaf debug logging
+  LOGGING_LEVEL_ORG_THYMELEAF: ERROR
+
+handlers:
+  - url: /.*
+    script: auto
+    secure: always
+
+entrypoint: java -Xmx64m -jar kamishibai-0.0.1-SNAPSHOT.jar
+
+automatic_scaling:
+  target_cpu_utilization: 0.65
+  min_instances: 1
+  max_instances: 1

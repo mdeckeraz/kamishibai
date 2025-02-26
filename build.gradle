@@ -101,16 +101,20 @@ appengine {
         version = "GCLOUD_CONFIG"
         projectId = "GCLOUD_CONFIG"
     }
-    stage {
-        artifact = "${buildDir}/libs/${project.name}-${project.version}.jar"
-    }
-}
-
-tasks.named('test') {
-    useJUnitPlatform()
 }
 
 tasks.named('bootJar') {
     archiveBaseName = 'kamishibai'
     archiveVersion = '0.0.1-SNAPSHOT'
+    // Copy the JAR to the App Engine directory after it's built
+    doLast {
+        copy {
+            from archiveFile
+            into 'src/main/appengine'
+        }
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
 }
